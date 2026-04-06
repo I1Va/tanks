@@ -3,6 +3,10 @@
 #include <vector>
 #include <cstdint>
 
+namespace api {
+
+class IClient;
+
 struct Cord {
     int x;
     int y;
@@ -22,15 +26,19 @@ struct GameMap {
     GameMap(const size_t height, const size_t width): grid(height, std::vector<Tile>(width)) {}
 };
 
-struct WorldSnapshot { // game data for client sending 
+struct GameState {
     GameMap map;
     uint64_t tick; 
     // std::vector<TankState> tanks;
     // std::vector<ProjectileState> projectiles;
 };
 
-// class IServer {
-// }
+class IServer {
+public:
+    virtual ~IServer() = default;
+    virtual void add_client(IClient *client) = 0;
+    virtual void update() = 0;
+};
 
+} // namespace api
 
-// TODO: make abstract server API class

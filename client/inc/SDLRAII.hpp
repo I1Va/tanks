@@ -22,6 +22,7 @@ using SDL_Texture  = std::unique_ptr<::SDL_Texture, SDLTextureDeleter>;
 using TTF_Font     = std::unique_ptr<::TTF_Font,    TTFFontDeleter>;
 using SDL_RWops    = std::unique_ptr<::SDL_RWops,   SDL_RWopsDeleter>;
 
+
 SDL_Window   SDL_CreateWindow(const char* title, int x, int y, int w, int h, Uint32 flags);
 SDL_Renderer SDL_CreateRenderer(const SDL_Window &w, int index, Uint32 flags);
 SDL_Texture  SDL_CreateTexture(const SDL_Renderer &renderer, Uint32 format, int access, int w, int h);

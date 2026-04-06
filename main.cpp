@@ -3,33 +3,28 @@
 #include "client.hpp"
 #include "server.hpp"
 
-ServerWorld create_world() {
+server::ServerWorld create_world() {
     const size_t height = 50;
     const size_t width = 50;
-    GameMap map(height, width);
+    api::GameMap map(height, width);
 
-    for (size_t i = 0; i < width; i++) map.grid[0][i].type = Tile::Type::WALL;
-    for (size_t i = 0; i < width; i++) map.grid[height - 1][i].type = Tile::Type::WALL;
-    for (size_t i = 0; i < height; i++) map.grid[i][0].type = Tile::Type::WALL;
-    for (size_t i = 0; i < height; i++) map.grid[i][width - 1].type = Tile::Type::WALL;
+    for (size_t i = 0; i < width; i++) map.grid[0][i].type = api::Tile::Type::WALL;
+    for (size_t i = 0; i < width; i++) map.grid[height - 1][i].type = api::Tile::Type::WALL;
+    for (size_t i = 0; i < height; i++) map.grid[i][0].type = api::Tile::Type::WALL;
+    for (size_t i = 0; i < height; i++) map.grid[i][width - 1].type = api::Tile::Type::WALL;
 
-    ServerWorld world(map);
+    server::ServerWorld world(map);
     return world;
 }
 
-
 int main() {
-    ServerWorld world = create_world();
+    server::ServerWorld world = create_world();
 
-    client::TanksGame::Config config;
-    client::TanksGame client_game(config);
-    Server server;
+    client::Client::Config config;
+    client::Client client_game(config);
+    server::Server server(world);
 
-    // server.add_client([&client](const WorldSnapshot &snapshot){ client.receive_snapshot(snapshot); });
-    // while (true) {
-    //     server.server_step(world);
-    //     client.draw();
-    // }
+    server.add_client(&client_game);
 
     int running = 1;
     SDL_Event e;
@@ -39,6 +34,7 @@ int main() {
                 running = 0;
             }
         }
+        server.update();
         client_game.show();   
     }
 }

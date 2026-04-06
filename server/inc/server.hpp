@@ -5,71 +5,64 @@
 #include <thread>
 #include <functional>
 #include <vector>
+#include <algorithm>
 
-#include "server_api/api.hpp"
+#include "API/server.hpp"
+#include "API/client.hpp"
+
+namespace server {
 
 class ServerWorld { // GameWorld logic
-    GameMap map_;
-    uint64_t tick_;
+    api::GameMap map_;
+    uint64_t tick_=0;
 public:
-    ServerWorld(const GameMap &map): map_(map) {}
+    ServerWorld(const api::GameMap &map): map_(map) {}
 
     void simulate_step(float dt) {
         ++tick_;
     }
     
-    WorldSnapshot create_snapshot() const {
-        return WorldSnapshot{map_, tick_};
+    api::GameState create_snapshot() const {
+        return api::GameState{map_, tick_};
+    }
+
+    void apply_input(const api::Input &input) {
+
     }
 };
 
-
-class Server {   
-    std::vector<std::function<void(const WorldSnapshot &)>> clients_;
+class Server : public api::IServer {   
+    ServerWorld world_;
+    std::vector<api::IClient *> clients_;
 public:
-    void send_snapshot_to_clients(const WorldSnapshot &snap) {
-        for (auto client : clients_) {
-            client(snap);
-        }
-    }
+    ~Server() = default;
+    Server(const ServerWorld &world): world_(world) {}
 
-    void run_server(ServerWorld &world) {
-        const float TICK_RATE = 30.0f;
-        const float dt = 1.0f / TICK_RATE;
-
-        while (true) {
-            auto start = std::chrono::steady_clock::now();
-
-            world.simulate_step(dt);
-
-            // 3) generate and send snapshot to all connected clients
-            WorldSnapshot snap = world.create_snapshot();
-            send_snapshot_to_clients(snap);
-
-            // 4) sleep until next tick
-            std::this_thread::sleep_until(start + std::chrono::duration<float>(dt));
-        }
-    }
-
-    void server_step(ServerWorld &world) {
-        const float TICK_RATE = 30.0f;
-        const float dt = 1.0f / TICK_RATE;
-        auto start = std::chrono::steady_clock::now();
-
-        world.simulate_step(dt);
-
-        // 3) generate and send snapshot to all connected clients
-        WorldSnapshot snap = world.create_snapshot();
-        send_snapshot_to_clients(snap);
-
-        // 4) sleep until next tick
-        std::this_thread::sleep_until(start + std::chrono::duration<float>(dt));
-    }
-
-    void add_client(std::function<void(const WorldSnapshot &)> client) {
+    void add_client(api::IClient *client) override {
+        assert(client);
         clients_.push_back(client);
     }
+
+    void update() override {
+        const float TICK_RATE = 30.0f;
+        
+        std::for_each(clients_.begin(), clients_.end(), 
+            [this](api::IClient* client) {
+            api::Input client_input = client->sendInput();
+            world_.apply_input(client_input);
+        });
+
+        world_.simulate_step(TICK_RATE);
     
+        std::for_each(clients_.begin(), clients_.end(), 
+            [this](api::IClient* client) {
+                api::GameState snapshot = world_.create_snapshot();
+                client->receive(snapshot);
+        });
+    }    
 };
+
+}; // namespace server
+
 
 
