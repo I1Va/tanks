@@ -3,9 +3,13 @@
 #include <iostream>
 #include <exception>
 #include <memory>
+#include <string>
+
+#include <SDL2/SDL_image.h>
 
 #include "SDLRAII.hpp"
 #include "err_proc.hpp"
+#include "SDL_utility.hpp"
 #include "API/client.hpp"
 #include "API/server.hpp"
 
@@ -14,12 +18,15 @@ namespace client
 
 class ClientWorld {
     uint64_t tick_;
+    api::GameMap map_;
 public:
     void apply_game_state(api::GameState &state) {
         tick_ = state.tick;
+        map_ = state.map;
     }
 
     uint64_t tick() const { return tick_; }
+    const api::GameMap &map() const { return map_; }
 };
 
 // class Net {
@@ -46,6 +53,26 @@ struct SDL_Init_Guard {
 
 
 class Graphics {
+public:
+    struct TexturePack {
+        std::string wall_texture_path="assets/textures/bricks/Brick.png";
+        std::string empty_texture_path="assets/textures/bricks/Grey bricks.png";      
+    };
+
+    struct Config {
+        int screen_width=800;
+        int screen_height=600;
+        int tile_sz=50;
+
+        std::string font_path="/usr/share/fonts/TTF/Hack-Bold.ttf";
+        int font_size=24;
+
+        TexturePack texture_pack;
+    };
+
+private:
+    Config config_;
+
     SDL_Init_Guard sdl_init;
     TTF_SDL_Init_Guard ttf_init;
 
@@ -54,14 +81,7 @@ class Graphics {
     raii::TTF_Font font_=nullptr;
 
 public:
-    struct Config {
-        size_t screen_width=800;
-        size_t screen_height=600;
-        std::string font_path="/usr/share/fonts/TTF/Hack-Bold.ttf";
-        size_t font_size=24;
-    };
-
-    Graphics(const Config &config) {
+    Graphics(const Config &config) : config_(config) {
         SDL_Window * window_ptr = 
         SDL_CreateWindow (
             "tanks game",
@@ -89,29 +109,33 @@ public:
     ~Graphics() {}
 
     void render(const ClientWorld &world) {
-        // clear screen
         SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 0, 255);
         SDL_RenderClear(renderer_.get());
 
-        // prepare tick text
-        std::string tick_text = "Tick: " + std::to_string(world.tick());
-        SDL_Color color = {255, 255, 255, 255}; // white
+        // TODO: fix perforamnce. Load texture ones in initialization;
+    
+        for (const auto &line : world.map().grid) {
+            for (const auto &tile : line) {
+                SDL_Texture *texture=nullptr;
+                std::string texture_path;
+                switch (tile.type) {
+                    case api::Tile::Type::WALL: texture_path = config_.texture_pack.wall_texture_path; break;
+                    case api::Tile::Type::EMPTY: texture_path = config_.texture_pack.empty_texture_path; break;
+                    default: assert("invalid tile type");
+                }
 
-        SDL_Surface* surface = TTF_RenderText_Solid(font_.get(), tick_text.c_str(), color);
-        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_.get(), surface);
-        SDL_FreeSurface(surface);
+                texture = loadTexture(renderer_.get(), texture_path);
+                if (!texture) throw SDLException();
 
-        SDL_Rect dstRect = {10, 10, 200, 50}; // position and size
-        SDL_RenderCopy(renderer_.get(), texture, nullptr, &dstRect);
-        SDL_DestroyTexture(texture);
+                SDL_Rect dstRect = {tile.cord.x * config_.tile_sz, tile.cord.y * config_.tile_sz, config_.tile_sz, config_.tile_sz};
+                SDL_RenderCopy(renderer_.get(), texture, nullptr, &dstRect);
 
-        // present everything
+            }
+        }
         SDL_RenderPresent(renderer_.get());
     }
 
     void show() {
-        SDL_RenderClear(renderer_.get());
-        SDL_RenderPresent(renderer_.get());
     }
 };
 

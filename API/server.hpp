@@ -24,6 +24,7 @@ struct Tile {
 struct GameMap {
     std::vector<std::vector<Tile>> grid;
     GameMap(const size_t height, const size_t width): grid(height, std::vector<Tile>(width)) {}
+    GameMap() = default;
 };
 
 struct GameState {

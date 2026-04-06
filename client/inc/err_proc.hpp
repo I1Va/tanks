@@ -5,8 +5,6 @@
 #include <stdexcept>
 #include <source_location>
 
-namespace client {
-
 struct SDLException : std::runtime_error {
     SDLException(std::string msg=SDL_GetError(),
                  const std::source_location& loc = std::source_location::current())
@@ -53,5 +51,3 @@ inline void requireTTFCondition(bool cond, std::string msg = TTF_GetError(), std
 inline void requireSDLCondition(bool cond, std::string msg = SDL_GetError(), std::source_location loc = std::source_location::current()) {
     if (!(cond)) throw SDLException(msg, loc); 
 }
-
-} // namespace client

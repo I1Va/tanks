@@ -59,10 +59,8 @@ public:
                 api::GameState snapshot = world_.create_snapshot();
                 client->receive(snapshot);
         });
-    }    
+    }
 };
 
 }; // namespace server
-
-
 
