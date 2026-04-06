@@ -8,12 +8,11 @@
 
 #include "server_api/api.hpp"
 
-
 class ServerWorld { // GameWorld logic
     GameMap map_;
     uint64_t tick_;
 public:
-    ServerWorld(const size_t height, const size_t width): map_(height, width) {}
+    ServerWorld(const GameMap &map): map_(map) {}
 
     void simulate_step(float dt) {
         ++tick_;
@@ -24,7 +23,8 @@ public:
     }
 };
 
-class Server { // API + client-server connection logic     
+
+class Server {   
     std::vector<std::function<void(const WorldSnapshot &)>> clients_;
 public:
     void send_snapshot_to_clients(const WorldSnapshot &snap) {

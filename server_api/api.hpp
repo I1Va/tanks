@@ -3,29 +3,23 @@
 #include <vector>
 #include <cstdint>
 
-struct HexCord {
-    int q;
-    int r;
+struct Cord {
+    int x;
+    int y;
 };
 
-struct HexTile {
+struct Tile {
     enum class Type {
-        FOREST,
-        LAKE,
-        MOUNTAIN,
+        WALL,
+        EMPTY,
     };
     Type type;
-    HexCord cord;
+    Cord cord;
 };
 
-class GameMap {
-    std::vector<std::vector<HexTile>> grid_;
-public:
-    GameMap(const size_t height, const size_t width): grid_(height, std::vector<HexTile>(width)) {}
-
-    HexTile& get(const HexCord cord) {
-        return grid_[cord.r][cord.q + (cord.r >> 1)];
-    }
+struct GameMap {
+    std::vector<std::vector<Tile>> grid;
+    GameMap(const size_t height, const size_t width): grid(height, std::vector<Tile>(width)) {}
 };
 
 struct WorldSnapshot { // game data for client sending 
@@ -34,6 +28,9 @@ struct WorldSnapshot { // game data for client sending
     // std::vector<TankState> tanks;
     // std::vector<ProjectileState> projectiles;
 };
+
+// class IServer {
+// }
 
 
 // TODO: make abstract server API class
