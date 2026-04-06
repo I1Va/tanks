@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 struct HexCord {
     int q;
     int r;
@@ -24,3 +27,13 @@ public:
         return grid_[cord.r][cord.q + (cord.r >> 1)];
     }
 };
+
+struct WorldSnapshot { // game data for client sending 
+    GameMap map;
+    uint64_t tick; 
+    // std::vector<TankState> tanks;
+    // std::vector<ProjectileState> projectiles;
+};
+
+
+// TODO: make abstract server API class
