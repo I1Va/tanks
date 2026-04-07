@@ -60,7 +60,7 @@ int main() {
 
     
 
-    const int FPS = 10;
+    const int FPS = 1;
     const int frameDelay = 1000 / FPS; // milliseconds
 
     Uint32 frameStart;
@@ -76,12 +76,10 @@ int main() {
 
         api::ITank::Dir dir = tank->get_dir();
         server.rotate(tank, get_next_dir(dir));
+        server.move_torward(tank);
 
         server.update();
         client_game.show();
-
-
-
 
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) SDL_Delay(frameDelay - frameTime);

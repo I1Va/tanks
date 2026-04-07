@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <queue>
 
 #include "API/server.hpp"
 #include "API/client.hpp"
@@ -23,20 +24,37 @@ public:
     
     void set_pos(const api::Cord pos) override { pos_ = pos; }
     api::Cord get_pos() const override { return pos_; } 
-    void set_dir(const api::ITank::Dir dir) { dir_ = dir; }
+    void set_dir(const api::ITank::Dir dir) override { dir_ = dir; }
     api::Cord get_hitbox_size() const override { return hitbox_size_; }    
     api::ITank::Dir get_dir() const override { return dir_; }
 };
 
+// class IServerEvent {
+
+// };
+
+// struct TankMoveServerEvent : IServerEvent {
+    
+// };
+
+
+
 class ServerWorld { // GameWorld logic
+
+ 
+
+private:
     api::GameMap map_;
     uint64_t tick_=0;
     std::map<const api::ITank *, std::unique_ptr<api::ITank>> tanks_;
+
+    // std::queue
 
 public:
     ServerWorld(const api::GameMap &map): map_(map) {}
 
     void simulate_step(float dt) {
+        // TODO: add queue of events and process them there  
         ++tick_;
     }
     
@@ -70,13 +88,45 @@ public:
 
     void rotate(const api::ITank *tank, api::ITank::Dir dir) {
         assert(tank);
-        // assert(tanks_.contains(tank));
+        assert(tanks_.contains(tank));
         tanks_[tank]->set_dir(dir);
     }
 
     api::Cord get_tank_hitbox_size() const {
         int sz = map_.tile_sz * 0.9; 
         return {sz, sz};
+    }
+
+    void move_torward(const api::ITank *tank) {
+        assert(tank);
+        assert(tanks_.contains(tank));
+
+        // TOOD: process walls, tanks collision
+        // TODO: add simulate_step synchronization
+        // TODO: hide from user ability to change tank inner state;
+        
+        float dt = 60;
+        api::ITank::Dir dir = tank->get_dir();
+        api::Cord pos = tank->get_pos();
+        api::Cord dir_vec = dir_to_cord(dir);
+
+        api::Cord new_pos = {
+            static_cast<int>(pos.x + dir_vec.x * dt),
+            static_cast<int>(pos.y + dir_vec.y * dt)
+        };
+        
+        tanks_[tank]->set_pos(new_pos);
+    }    
+
+private:
+    static api::Cord dir_to_cord(api::ITank::Dir dir) {
+    switch (dir) {
+            case api::ITank::Dir::UP:    return { 0, -1 }; // move up
+            case api::ITank::Dir::DOWN:  return { 0,  1 }; // move down
+            case api::ITank::Dir::LEFT:  return { -1, 0 }; // move left
+            case api::ITank::Dir::RIGHT: return { 1,  0 }; // move right
+            default: return {0, 0}; // no movement
+        }
     }
 };
 
@@ -115,7 +165,7 @@ public:
     }
 
     void move_torward(const api::ITank *tank) override {
-
+        world_.move_torward(tank);
     }
 
     void rotate(const api::ITank *tank, api::ITank::Dir dir) override {
