@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fstream>
+
 #include <SDL2/SDL_image.h>
 #include "SDLRAII.hpp"
 #include "SDL_utility.hpp"
@@ -22,16 +24,99 @@ struct SDL_Init_Guard {
     ~SDL_Init_Guard() { SDL_Quit(); }
 };
 
+struct TexturePackPathes {
+    std::string walls_texture_pack="assets/texture_packs/tiles1";  
+    std::string tank_texture_pack="assets/texture_packs/tank1";
+};
+
+struct TileTexturePack {
+    static constexpr std::string WALL_PATH = "wall.png";
+    static constexpr std::string FLOOR_PATH = "floor.png";
+  
+    raii::SDL_Texture wall=nullptr;
+    raii::SDL_Texture floor=nullptr;
+
+    void load(SDL_Renderer *renderer, const std::string &path) {
+        SDL_Texture *texture=nullptr;
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + WALL_PATH));
+        wall.reset(texture);
+
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + FLOOR_PATH));
+        floor.reset(texture);
+    }
+};
+
+struct TankTexturePack {
+    static constexpr std::string BODY_PATH = "body.png";
+    static constexpr std::string TURRET_PATH = "turret.png";
+    static constexpr std::string TRACK_A_PATH = "trackA.png";
+    static constexpr std::string TRACK_B_PATH = "trackB.png";
+    static constexpr std::string RENDER_INFO_PATH = "render_info";
+
+    raii::SDL_Texture body=nullptr;
+    Vec2f body_center={};
+    Vec2f turret_slot_center={};
+
+    raii::SDL_Texture turret=nullptr;
+    Vec2f turret_center={};
+
+    raii::SDL_Texture trackA=nullptr;
+    raii::SDL_Texture trackB=nullptr;
+
+    Vec2f parse_turret_center(std::ifstream &file) {
+        std::string key;
+        Vec2f center;
+
+        while (file >> key) {
+            if (key == "turret_center") {
+                file >> center.x >> center.y;
+                return center;
+            }
+        }
+    
+        throw std::runtime_error("turret_center was not found in render info");
+    }
+
+    void parse_render_info(const std::string &path) {
+        std::ifstream file(path + "/" + RENDER_INFO_PATH);
+        if (!file) throw std::runtime_error("failed to load render_info : `" + RENDER_INFO_PATH + "`");
+
+        std::string key;
+        Vec2f center;
+
+        bool body_center_parsed = false;
+        bool turret_slot_center_parsed = false;
+        bool turret_center_parsed = false;
+        while (file >> key && file >> center.x >> center.y) {
+            if (key == "body_center") { body_center = center; body_center_parsed = true; continue; }
+            if (key == "turret_slot_center") { turret_slot_center = center; turret_slot_center_parsed = true; continue; }
+            if (key == "turret_center") { turret_center = center; turret_center_parsed = true; continue; }
+        }
+        if (!body_center_parsed) std::cerr << "render info : " << "body_center" << "was not parsed\n";
+        if (!turret_slot_center_parsed) std::cerr << "render info : " << "turret_slot_center" << "was not parsed\n";
+        if (!turret_center_parsed) std::cerr << "render info : " << "turret_center" << "was not parsed\n";
+    }
+
+    void load(SDL_Renderer *renderer, const std::string &path) {
+        SDL_Texture *texture=nullptr;
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + BODY_PATH));
+        body.reset(texture);
+
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + TURRET_PATH));
+        turret.reset(texture);
+
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + TRACK_A_PATH));
+        trackA.reset(texture);
+
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + TRACK_B_PATH));
+        trackB.reset(texture);
+
+        parse_render_info(path);
+    }
+};
+
 class Graphics {
 public:
-    struct TexturePackPathes {
-        std::string wall_texture_path="assets/textures/bricks/Brick.png";
-        std::string empty_texture_path="assets/textures/bricks/Greybricks.png";     
-
-        std::string tank_texture_path = "assets/textures/free-2d-battle-tank-game-assets/PNG/Hulls_Color_A/Hull_01.png";
-        std::string turret_texture_path = "assets/textures/free-2d-battle-tank-game-assets/PNG/Weapon_Color_A/Gun_01.png";
-    };
-
     struct Config {
         int screen_width=600;
         int screen_height=600;
@@ -40,29 +125,6 @@ public:
         int font_size=24;
 
         TexturePackPathes texture_pack_pathes;
-    };
-
-    struct TexturePack {
-        raii::SDL_Texture wall_tile_texture=nullptr;
-        raii::SDL_Texture empty_tile_texture=nullptr;
-        raii::SDL_Texture tank_texture=nullptr;
-        raii::SDL_Texture turret_texture=nullptr;
-
-        void load(SDL_Renderer *renderer, const TexturePackPathes &pathes) {
-            SDL_Texture *texture=nullptr;
-            requireSDLCondition(texture=load_texture(renderer, pathes.wall_texture_path));
-            wall_tile_texture.reset(texture);
-
-            requireSDLCondition(texture=load_texture(renderer, pathes.empty_texture_path));
-            empty_tile_texture.reset(texture);
-
-            requireSDLCondition(texture=load_texture(renderer, pathes.tank_texture_path));
-            tank_texture.reset(texture);
-
-            requireSDLCondition(texture=load_texture(renderer, pathes.turret_texture_path));
-            turret_texture.reset(texture);
-
-        }
     };
 
 private:
@@ -75,7 +137,9 @@ private:
     raii::SDL_Renderer renderer_=nullptr;
     raii::TTF_Font font_=nullptr;
 
-    TexturePack texture_pack_;
+    TankTexturePack tank_texture_pack;
+    TileTexturePack tile_texture_pack;
+
 public:
     Graphics(const Config &config) : config_(config) {
         SDL_Window * window_ptr = 
@@ -101,7 +165,8 @@ public:
         if (!font_ptr) throw TTFException();
         font_.reset(font_ptr); 
 
-        texture_pack_.load(renderer_.get(), config_.texture_pack_pathes);
+        tank_texture_pack.load(renderer_.get(), config.texture_pack_pathes.tank_texture_pack);
+        tile_texture_pack.load(renderer_.get(), config.texture_pack_pathes.walls_texture_pack);
     }
 
     ~Graphics() {}
@@ -137,8 +202,8 @@ private:
                 int h = world.map().tile_sz;
                 api::Tile tile = grid[y][x];
                 switch (tile.type) {
-                    case api::Tile::Type::WALL:  draw_texture(renderer_.get(), texture_pack_.wall_tile_texture.get(), x * w, y * h, w, h); break;
-                    case api::Tile::Type::EMPTY: draw_texture(renderer_.get(), texture_pack_.empty_tile_texture.get(), x * w, y * h, w, h); break;
+                    case api::Tile::Type::WALL:  draw_texture(renderer_.get(), tile_texture_pack.wall.get(),  x * w, y * h, w, h); break;
+                    case api::Tile::Type::EMPTY: draw_texture(renderer_.get(), tile_texture_pack.floor.get(), x * w, y * h, w, h); break;
                     default: 
                     assert(false && "invalid tile type");
                 }
@@ -161,10 +226,10 @@ private:
         }; 
 
         int w, h;
-        SDL_QueryTexture(texture_pack_.tank_texture.get(), nullptr, nullptr, &w, &h);
+        SDL_QueryTexture(tank_texture_pack.body.get(), nullptr, nullptr, &w, &h);
 
         SDL_RenderCopyEx(renderer_.get(),
-                        texture_pack_.tank_texture.get(),
+                        tank_texture_pack.body.get(),
                         nullptr,       
                         &tank_rect,
                         angle,         
