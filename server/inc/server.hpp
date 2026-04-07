@@ -14,21 +14,6 @@
 
 namespace server {
 
-class Tank : public api::ITank {
-    api::Cord hitbox_size_={};
-    api::Cord pos_={};
-    api::ITank::Dir dir_=api::ITank::Dir::UP;
-
-public:
-    Tank(api::Cord hitbox_size): hitbox_size_(hitbox_size) {}
-    
-    void set_pos(const api::Cord pos) override { pos_ = pos; }
-    api::Cord get_pos() const override { return pos_; } 
-    void set_dir(const api::ITank::Dir dir) override { dir_ = dir; }
-    api::Cord get_hitbox_size() const override { return hitbox_size_; }    
-    api::ITank::Dir get_dir() const override { return dir_; }
-};
-
 // class IServerEvent {
 
 // };
@@ -37,18 +22,31 @@ public:
     
 // };
 
+struct Tank {
+    api::Cord pos;
+    api::Dir dir;
+    api::Cord hitbox_sz;
+    // delay of shooting
+    // hp
+    Tank() = default;
 
+    api::TankInfo get_info() {
+        api::TankInfo info;
+        info.pos = pos;
+        info.dir = dir;
+        info.hitbox_sz = hitbox_sz;
+        return info;
+    }
+};
 
 class ServerWorld { // GameWorld logic
-
  
-
 private:
     api::GameMap map_;
     uint64_t tick_=0;
-    std::map<const api::ITank *, std::unique_ptr<api::ITank>> tanks_;
 
-    // std::queue
+    api::TankId tank_id=0;
+    std::map<uint64_t, Tank> tanks_; 
 
 public:
     ServerWorld(const api::GameMap &map): map_(map) {}
@@ -64,7 +62,7 @@ public:
         state.tick = tick_;
         std::transform(tanks_.begin(), tanks_.end(), 
             std::back_inserter(state.tanks),
-            [](auto &tank_pair) { return tank_pair.second.get(); });
+            [](auto tank_pair) { return tank_pair.second.get_info(); });
 
         return state;
     }
@@ -73,23 +71,17 @@ public:
 
     }
 
-    api::ITank *spawn_tank_in_tile(const api::Cord tile_pos) {
-        auto tank = std::make_unique<Tank>(get_tank_hitbox_size());
-        auto tank_ptr = tank.get();
-        api::Cord pos = {
-            static_cast<int>(tile_pos.x * map_.tile_sz), 
-            static_cast<int>(tile_pos.y * map_.tile_sz)
-        };
-        tank->set_pos(pos);
-        tanks_[tank_ptr] = std::move(tank);    
-      
-        return tank_ptr;
+    uint64_t spawn_tank_in_tile(const api::Cord tile_pos) {
+        tanks_[tank_id] = Tank();
+        auto &tank = tanks_[tank_id];
+        tank.pos = tile_pos;
+        tank.hitbox_sz = get_tank_hitbox_size();
+        return tank_id++;
     }
 
-    void rotate(const api::ITank *tank, api::ITank::Dir dir) {
-        assert(tank);
-        assert(tanks_.contains(tank));
-        tanks_[tank]->set_dir(dir);
+    void rotate(const api::TankId tank_id, api::Dir dir) {
+        if (!tanks_.contains(tank_id)) return;
+        tanks_[tank_id].dir = dir;
     }
 
     api::Cord get_tank_hitbox_size() const {
@@ -97,34 +89,39 @@ public:
         return {sz, sz};
     }
 
-    void move_torward(const api::ITank *tank) {
-        assert(tank);
-        assert(tanks_.contains(tank));
+    void move_torward(const api::TankId tank_id) {
+        if (!tanks_.contains(tank_id)) return;
 
         // TOOD: process walls, tanks collision
         // TODO: add simulate_step synchronization
-        // TODO: hide from user ability to change tank inner state;
         
-        float dt = 60;
-        api::ITank::Dir dir = tank->get_dir();
-        api::Cord pos = tank->get_pos();
+        auto &tank = tanks_[tank_id];
+
+        api::Dir dir = tank.dir;
+        api::Cord pos = tank.pos;
         api::Cord dir_vec = dir_to_cord(dir);
 
         api::Cord new_pos = {
-            static_cast<int>(pos.x + dir_vec.x * dt),
-            static_cast<int>(pos.y + dir_vec.y * dt)
+            static_cast<int>(pos.x + dir_vec.x),
+            static_cast<int>(pos.y + dir_vec.y)
         };
         
-        tanks_[tank]->set_pos(new_pos);
+        tank.pos = new_pos;
     }    
 
+    int get_tank_info(api::TankId id, api::TankInfo &info) {
+        if (tanks_.contains(id)) return 1;
+        info = tanks_[id].get_info();
+        return 0;
+    }
+
 private:
-    static api::Cord dir_to_cord(api::ITank::Dir dir) {
+    static api::Cord dir_to_cord(api::Dir dir) {
     switch (dir) {
-            case api::ITank::Dir::UP:    return { 0, -1 }; // move up
-            case api::ITank::Dir::DOWN:  return { 0,  1 }; // move down
-            case api::ITank::Dir::LEFT:  return { -1, 0 }; // move left
-            case api::ITank::Dir::RIGHT: return { 1,  0 }; // move right
+            case api::Dir::UP:    return { 0, -1 }; // move up
+            case api::Dir::DOWN:  return { 0,  1 }; // move down
+            case api::Dir::LEFT:  return { -1, 0 }; // move left
+            case api::Dir::RIGHT: return { 1,  0 }; // move right
             default: return {0, 0}; // no movement
         }
     }
@@ -160,16 +157,18 @@ public:
         });
     }
 
-    api::ITank *spawn_tank_in_tile(const api::Cord tile_pos) override {
+    api::TankId spawn_tank_in_tile(const api::Cord tile_pos) override {
         return world_.spawn_tank_in_tile(tile_pos);
     }
 
-    void move_torward(const api::ITank *tank) override {
-        world_.move_torward(tank);
+    void move_torward(const api::TankId tank_id) override {
+        world_.move_torward(tank_id);
     }
-
-    void rotate(const api::ITank *tank, api::ITank::Dir dir) override {
-        world_.rotate(tank, dir);
+    void rotate(const api::TankId tank_id, const api::Dir dir) override {
+        world_.rotate(tank_id, dir);
+    }
+    int get_tank_info(api::TankId id, api::TankInfo &info) {
+        return world_.get_tank_info(id, info);
     }
 };
 

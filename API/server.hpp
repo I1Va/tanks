@@ -35,30 +35,26 @@ struct GameMap {
     GameMap()=default;
 };
 
-class ITank {
-public:
-    enum class Dir {
-        LEFT,
-        RIGHT,
-        UP,
-        DOWN
-    };
-    virtual ~ITank() = default;
-    virtual void set_pos(const Cord pos) = 0;
-    virtual api::Cord get_pos() const = 0;
-    virtual void set_dir(const Dir dir) = 0;
-    virtual Dir get_dir() const = 0;
-    virtual api::Cord get_hitbox_size() const = 0;      
+using TankId = uint64_t;
+
+enum class Dir {
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN
+};
+
+struct TankInfo {
+    Cord pos;
+    Dir dir;
+    Cord hitbox_sz;
 };
 
 struct GameState {
     GameMap map;
     uint64_t tick; 
-    std::vector<api::ITank *> tanks;
-    // std::vector<TankState> tanks;
-    // std::vector<ProjectileState> projectiles;
+    std::vector<TankInfo> tanks;
 };
-
 
 class IServer {
 public:
@@ -66,10 +62,11 @@ public:
     virtual void add_client(IClient *client) = 0;
     virtual void update() = 0;
 
-    virtual ITank *spawn_tank_in_tile(const Cord tile_pos) = 0;
-
-    virtual void move_torward(const ITank *tank) = 0;
-    virtual void rotate(const ITank *tank, ITank::Dir dir) = 0;    
+    virtual TankId spawn_tank_in_tile(const Cord tile_pos) = 0;
+    virtual void move_torward(const TankId tank_id) = 0;
+    virtual void rotate(const TankId tank_id, const Dir dir) = 0;
+    
+    virtual int get_tank_info(TankId id, TankInfo &info) = 0;
 };
 
 } // namespace api

@@ -17,13 +17,16 @@ SDL_Texture *surface_to_texture(SDL_Renderer *renderer, SDL_Surface *surface) {
     assert(surface);
 
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+
     return texture;
 }
 
 SDL_Texture *load_texture(SDL_Renderer *renderer, const std::string& path) {
     SDL_Surface *surface = load_surface(path);
     if (!surface) return nullptr;
-    return surface_to_texture(renderer, surface);
+    SDL_Texture * texture = surface_to_texture(renderer, surface);
+    SDL_FreeSurface(surface);
+    return texture;
 }
 
 void draw_texture(SDL_Renderer* renderer, SDL_Texture* texture, int x, int y, int w, int h) {

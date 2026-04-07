@@ -12,24 +12,44 @@
 #include "SDL_utility.hpp"
 #include "API/client.hpp"
 #include "API/server.hpp"
+#include "vec2.hpp"
 
 namespace client 
 {
 
+struct Tank {
+    Vec2f pos;
+    api::Dir dir;
+    Vec2f hitbox_sz;
+    // delay of shooting
+    // hp
+    Tank() = default;
+};
+
 class ClientWorld {
     uint64_t tick_;
     api::GameMap map_;
-    std::vector<api::ITank *> tanks_;
+    std::vector<Tank> tanks_;
 public:
     void apply_game_state(api::GameState &state) {
         tick_ = state.tick;
         map_ = state.map;
-        tanks_ = state.tanks;
+        
+        tanks_.clear();
+        std::transform(state.tanks.begin(), state.tanks.end(), 
+            std::back_inserter(tanks_),
+            [&state](auto &tank_info) { 
+                Tank tank;
+                tank.pos = Vec2f(tank_info.pos.x * state.map.tile_sz, tank_info.pos.y * state.map.tile_sz);
+                tank.dir = tank_info.dir;
+                tank.hitbox_sz = Vec2f(tank_info.hitbox_sz.x, tank_info.hitbox_sz.y);
+                return tank;
+            });
     }
 
     uint64_t tick() const { return tick_; }
     const api::GameMap &map() const { return map_; }
-    const std::vector<api::ITank *> &tanks() const { return tanks_; }
+    const std::vector<Tank> &tanks() const { return tanks_; }
 };
 
 // class Net {
@@ -51,7 +71,7 @@ struct TTF_SDL_Init_Guard {
 
 struct SDL_Init_Guard {
     SDL_Init_Guard() { if (SDL_Init(SDL_INIT_VIDEO)!=0) throw SDLException(); }
-    ~SDL_Init_Guard() { TTF_Quit(); }
+    ~SDL_Init_Guard() { SDL_Quit(); }
 };
 
 
@@ -147,30 +167,36 @@ public:
                     case api::Tile::Type::WALL:  draw_texture(renderer_.get(), texture_pack_.wall_tile_texture.get(), x * w, y * h, w, h); break;
                     case api::Tile::Type::EMPTY: draw_texture(renderer_.get(), texture_pack_.empty_tile_texture.get(), x * w, y * h, w, h); break;
                     default: 
-                    assert("invalid tile type");
+                    assert(false && "invalid tile type");
                 }
             }
         }
 
-        for (auto tank : world.tanks()) {
-            api::Cord tank_pos = tank->get_pos();
-            api::Cord tank_hitbox_size = tank->get_hitbox_size();
-            SDL_Rect dstRect = { tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y };
+        for (auto &tank : world.tanks()) {
+            SDL_Rect tank_rect = { 
+                static_cast<int>(tank.pos.x), 
+                static_cast<int>(tank.pos.y), 
+                static_cast<int>(tank.hitbox_sz.x), 
+                static_cast<int>(tank.hitbox_sz.y) 
+            };
 
-            float angle = convert_dir_to_angle(tank->get_dir());
-            SDL_Point center = { tank_hitbox_size.x / 2, tank_hitbox_size.y / 2 }; // rotate around center
+            float angle = convert_dir_to_angle(tank.dir);
+            SDL_Point center = { 
+                static_cast<int>(tank.hitbox_sz.x / 2), 
+                static_cast<int>(tank.hitbox_sz.y / 2)
+            }; 
 
             SDL_RenderCopyEx(renderer_.get(),
                             texture_pack_.tank_texture.get(),
-                            nullptr,       // full source texture
-                            &dstRect,
-                            angle,         // rotation angle
-                            &center,       // rotation center
+                            nullptr,       
+                            &tank_rect,
+                            angle,         
+                            &center,       
                             SDL_FLIP_NONE);
 
-            SDL_Rect rect = {tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y};
+
             SDL_SetRenderDrawColor(renderer_.get(), 255, 0, 0, 255); 
-            SDL_RenderDrawRect(renderer_.get(), &rect);
+            SDL_RenderDrawRect(renderer_.get(), &tank_rect);
         }
         SDL_RenderPresent(renderer_.get());
     }
@@ -179,13 +205,13 @@ public:
     }
 
 private:
-    static float convert_dir_to_angle(const api::ITank::Dir dir) {
+    static float convert_dir_to_angle(const api::Dir dir) {
         switch (dir) {
-            case api::ITank::Dir::UP: return 0;
-            case api::ITank::Dir::RIGHT: return 90;
-            case api::ITank::Dir::DOWN: return 180;
-            case api::ITank::Dir::LEFT: return 270;
-            default: assert(false && "unknown api::ITank::Dir: " && (int) dir); return 0;
+            case api::Dir::UP: return 0;
+            case api::Dir::RIGHT: return 90;
+            case api::Dir::DOWN: return 180;
+            case api::Dir::LEFT: return 270;
+            default: assert(false && "unknown api::Dir: " && (int) dir); return 0;
         }
     }
 };
@@ -201,7 +227,9 @@ public:
 
     Client(const Config &config): graphics_(config.gfx_config) {}
 
-    void show() { graphics_.show(); }
+    void update() { 
+        graphics_.render(world_); 
+    }
 
     api::Input sendInput() const override {
         return {};
@@ -210,7 +238,6 @@ public:
     // receive game state from server
     void receive(api::GameState &state) override {
         world_.apply_game_state(state);
-        graphics_.render(world_);
     }
 
     bool connect(const std::string &ip, int port) override {
