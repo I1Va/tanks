@@ -58,7 +58,7 @@ int main() {
     api::TankId tank_id = server.spawn_tank_in_tile({5, 5});
 
 
-    const int FPS = 1;
+    const int FPS = 5;
     const int frameDelay = 1000 / FPS; // milliseconds
 
     Uint32 frameStart;
@@ -72,15 +72,15 @@ int main() {
             if (e.type == SDL_QUIT) running = 0;
         }
 
+        server.update();
+        client_game.update();
+
         api::TankInfo tank; 
-        int res = server.get_tank_info(tank_id, tank); assert(res);
+        int res = server.get_tank_info(tank_id, tank); assert(res == 0);
 
         api::Dir dir = tank.dir;
         server.rotate(tank_id, get_next_dir(dir));
         server.move_torward(tank_id);
-
-        server.update();
-        client_game.update();
 
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) SDL_Delay(frameDelay - frameTime);

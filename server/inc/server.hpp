@@ -45,8 +45,8 @@ private:
     api::GameMap map_;
     uint64_t tick_=0;
 
-    api::TankId tank_id=0;
     std::map<uint64_t, Tank> tanks_; 
+    api::TankId tank_id_=0;
 
 public:
     ServerWorld(const api::GameMap &map): map_(map) {}
@@ -55,6 +55,8 @@ public:
         // TODO: add queue of events and process them there  
         ++tick_;
     }
+    
+    api::TankId get_new_tank_id() { return tank_id_++; }
     
     api::GameState create_snapshot() const {
         api::GameState state;
@@ -71,15 +73,14 @@ public:
 
     }
 
-    uint64_t spawn_tank_in_tile(const api::Cord tile_pos) {
-        tanks_[tank_id] = Tank();
-        auto &tank = tanks_[tank_id];
+    void spawn_tank_in_tile(const api::Cord tile_pos, const api::TankId id) {
+        tanks_[id] = Tank();
+        auto &tank = tanks_[id];
         tank.pos = tile_pos;
         tank.hitbox_sz = get_tank_hitbox_size();
-        return tank_id++;
     }
 
-    void rotate(const api::TankId tank_id, api::Dir dir) {
+    void tank_rotate(const api::TankId tank_id, api::Dir dir) {
         if (!tanks_.contains(tank_id)) return;
         tanks_[tank_id].dir = dir;
     }
@@ -89,7 +90,7 @@ public:
         return {sz, sz};
     }
 
-    void move_torward(const api::TankId tank_id) {
+    void tank_move_forward(const api::TankId tank_id) {
         if (!tanks_.contains(tank_id)) return;
 
         // TOOD: process walls, tanks collision
@@ -110,7 +111,7 @@ public:
     }    
 
     int get_tank_info(api::TankId id, api::TankInfo &info) {
-        if (tanks_.contains(id)) return 1;
+        if (!tanks_.contains(id)) return 1;
         info = tanks_[id].get_info();
         return 0;
     }
@@ -127,9 +128,24 @@ private:
     }
 };
 
+
+struct ServerCommand {
+    enum Type { 
+        MoveForward, 
+        Rotate,
+        Spawn,
+    };
+    Type type;
+    api::TankId tank_id;
+    api::Dir dir; 
+    api::Cord tile_pos;
+};
+
 class Server : public api::IServer {   
     ServerWorld world_;
     std::vector<api::IClient *> clients_;
+    std::queue<ServerCommand> comand_queue;
+    
 public:
     ~Server() = default;
     Server(const api::GameMap &map): world_(map) {}
@@ -140,6 +156,8 @@ public:
     }
 
     void update() override {
+        execute_command_queue();
+    
         const float TICK_RATE = 30.0f;
         
         std::for_each(clients_.begin(), clients_.end(), 
@@ -158,17 +176,50 @@ public:
     }
 
     api::TankId spawn_tank_in_tile(const api::Cord tile_pos) override {
-        return world_.spawn_tank_in_tile(tile_pos);
+        ServerCommand comand;
+        api::TankId id = world_.get_new_tank_id();
+        comand.type = ServerCommand::Type::Spawn;
+        comand.tank_id = id;
+        comand.tile_pos = tile_pos;
+        comand_queue.push(comand);
+        return id;
     }
 
     void move_torward(const api::TankId tank_id) override {
-        world_.move_torward(tank_id);
+        ServerCommand comand;
+        comand.type = ServerCommand::Type::MoveForward;
+        comand.tank_id = tank_id;
+        comand_queue.push(comand);
     }
+    
     void rotate(const api::TankId tank_id, const api::Dir dir) override {
-        world_.rotate(tank_id, dir);
+        ServerCommand comand;
+        comand.type = ServerCommand::Type::Rotate;
+        comand.tank_id = tank_id;
+        comand.dir = dir;
+        comand_queue.push(comand);
     }
+
     int get_tank_info(api::TankId id, api::TankInfo &info) {
         return world_.get_tank_info(id, info);
+    }
+
+private:
+    void execute_command_queue() {
+        while (!comand_queue.empty()) {
+            auto &command = comand_queue.front();
+            switch (command.type) {
+                case ServerCommand::Type::Rotate: 
+                    world_.tank_rotate(command.tank_id, command.dir); break;
+                case ServerCommand::Type::MoveForward: 
+                    world_.tank_move_forward(command.tank_id); break;
+                case ServerCommand::Type::Spawn:
+                    world_.spawn_tank_in_tile(command.tile_pos, command.tank_id); break;
+                default:
+                    assert(false && "unknown command in queue" && (int) command.type);
+            }
+            comand_queue.pop();
+        }   
     }
 };
 
