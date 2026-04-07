@@ -37,15 +37,17 @@ struct GameMap {
 
 class ITank {
 public:
-    enum class Dirs {
+    enum class Dir {
         LEFT,
         RIGHT,
         UP,
         DOWN
     };
     virtual ~ITank() = default;
-    virtual void set_pos(const api::Cord pos) = 0;
+    virtual void set_pos(const Cord pos) = 0;
     virtual api::Cord get_pos() const = 0;
+    virtual void set_dir(const Dir dir) = 0;
+    virtual Dir get_dir() const = 0;
     virtual api::Cord get_hitbox_size() const = 0;      
 };
 
@@ -66,8 +68,8 @@ public:
 
     virtual ITank *spawn_tank_in_tile(const Cord tile_pos) = 0;
 
-    // virtual void move(const ITank *tank, ITank::Dirs dir, float dt) = 0;
-    // virtual void rotate(const ITank *tank, ITank::Dirs dir) = 0;    
+    virtual void move_torward(const ITank *tank) = 0;
+    virtual void rotate(const ITank *tank, ITank::Dir dir) = 0;    
 };
 
 } // namespace api

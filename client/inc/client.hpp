@@ -155,8 +155,19 @@ public:
         for (auto tank : world.tanks()) {
             api::Cord tank_pos = tank->get_pos();
             api::Cord tank_hitbox_size = tank->get_hitbox_size();
-            draw_texture(renderer_.get(), texture_pack_.tank_texture.get(), tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y);
-            
+            SDL_Rect dstRect = { tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y };
+
+            float angle = convert_dir_to_angle(tank->get_dir());
+            SDL_Point center = { tank_hitbox_size.x / 2, tank_hitbox_size.y / 2 }; // rotate around center
+
+            SDL_RenderCopyEx(renderer_.get(),
+                            texture_pack_.tank_texture.get(),
+                            nullptr,       // full source texture
+                            &dstRect,
+                            angle,         // rotation angle
+                            &center,       // rotation center
+                            SDL_FLIP_NONE);
+
             SDL_Rect rect = {tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y};
             SDL_SetRenderDrawColor(renderer_.get(), 255, 0, 0, 255); 
             SDL_RenderDrawRect(renderer_.get(), &rect);
@@ -165,6 +176,17 @@ public:
     }
 
     void show() {
+    }
+
+private:
+    static float convert_dir_to_angle(const api::ITank::Dir dir) {
+        switch (dir) {
+            case api::ITank::Dir::UP: return 0;
+            case api::ITank::Dir::RIGHT: return 90;
+            case api::ITank::Dir::DOWN: return 180;
+            case api::ITank::Dir::LEFT: return 270;
+            default: assert(false && "unknown api::ITank::Dir: " && (int) dir); return 0;
+        }
     }
 };
 

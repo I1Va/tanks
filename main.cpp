@@ -37,6 +37,16 @@ api::GameMap create_game_map() {
     return map;
 }
 
+api::ITank::Dir get_next_dir(api::ITank::Dir dir) {
+    switch (dir) {
+        case api::ITank::Dir::UP:    return api::ITank::Dir::RIGHT;
+        case api::ITank::Dir::RIGHT: return api::ITank::Dir::DOWN;
+        case api::ITank::Dir::DOWN:  return api::ITank::Dir::LEFT;
+        case api::ITank::Dir::LEFT:  return api::ITank::Dir::UP;
+        default: return api::ITank::Dir::UP;
+    }
+}
+
 int main() {
     api::GameMap map = create_game_map();
 
@@ -45,9 +55,12 @@ int main() {
     server::Server server(map);
 
     server.add_client(&client_game);
-    server.spawn_tank_in_tile({5, 5});
+    api::ITank *tank = server.spawn_tank_in_tile({5, 5});
 
-    const int FPS = 60;
+
+    
+
+    const int FPS = 10;
     const int frameDelay = 1000 / FPS; // milliseconds
 
     Uint32 frameStart;
@@ -61,10 +74,17 @@ int main() {
             if (e.type == SDL_QUIT) running = 0;
         }
 
+        api::ITank::Dir dir = tank->get_dir();
+        server.rotate(tank, get_next_dir(dir));
+
         server.update();
         client_game.show();
 
+
+
+
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) SDL_Delay(frameDelay - frameTime);
+        
     }
 }

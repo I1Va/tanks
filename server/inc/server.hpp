@@ -6,6 +6,7 @@
 #include <functional>
 #include <vector>
 #include <algorithm>
+#include <map>
 
 #include "API/server.hpp"
 #include "API/client.hpp"
@@ -15,19 +16,22 @@ namespace server {
 class Tank : public api::ITank {
     api::Cord hitbox_size_={};
     api::Cord pos_={};
+    api::ITank::Dir dir_=api::ITank::Dir::UP;
 
 public:
     Tank(api::Cord hitbox_size): hitbox_size_(hitbox_size) {}
     
     void set_pos(const api::Cord pos) override { pos_ = pos; }
     api::Cord get_pos() const override { return pos_; } 
+    void set_dir(const api::ITank::Dir dir) { dir_ = dir; }
     api::Cord get_hitbox_size() const override { return hitbox_size_; }    
+    api::ITank::Dir get_dir() const override { return dir_; }
 };
 
 class ServerWorld { // GameWorld logic
     api::GameMap map_;
     uint64_t tick_=0;
-    std::vector<std::unique_ptr<api::ITank>> tanks_;
+    std::map<const api::ITank *, std::unique_ptr<api::ITank>> tanks_;
 
 public:
     ServerWorld(const api::GameMap &map): map_(map) {}
@@ -42,7 +46,7 @@ public:
         state.tick = tick_;
         std::transform(tanks_.begin(), tanks_.end(), 
             std::back_inserter(state.tanks),
-            [](auto &tank) { return tank.get(); });
+            [](auto &tank_pair) { return tank_pair.second.get(); });
 
         return state;
     }
@@ -52,13 +56,22 @@ public:
     }
 
     api::ITank *spawn_tank_in_tile(const api::Cord tile_pos) {
-        tanks_.emplace_back(std::make_unique<Tank>(get_tank_hitbox_size()));
+        auto tank = std::make_unique<Tank>(get_tank_hitbox_size());
+        auto tank_ptr = tank.get();
         api::Cord pos = {
             static_cast<int>(tile_pos.x * map_.tile_sz), 
             static_cast<int>(tile_pos.y * map_.tile_sz)
         };
-        tanks_.back()->set_pos(pos);
-        return tanks_.back().get();
+        tank->set_pos(pos);
+        tanks_[tank_ptr] = std::move(tank);    
+      
+        return tank_ptr;
+    }
+
+    void rotate(const api::ITank *tank, api::ITank::Dir dir) {
+        assert(tank);
+        // assert(tanks_.contains(tank));
+        tanks_[tank]->set_dir(dir);
     }
 
     api::Cord get_tank_hitbox_size() const {
@@ -101,10 +114,13 @@ public:
         return world_.spawn_tank_in_tile(tile_pos);
     }
 
-    // void move(const ITank *tank, ITank::Dirs dir, float dt) = 0;
-    // void rotate(const ITank *tank, ITank::Dirs dir) = 0;    
+    void move_torward(const api::ITank *tank) override {
 
+    }
 
+    void rotate(const api::ITank *tank, api::ITank::Dir dir) override {
+        world_.rotate(tank, dir);
+    }
 };
 
 }; // namespace server
