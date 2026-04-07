@@ -25,7 +25,6 @@ namespace server {
 struct Tank {
     api::Cord pos;
     api::Dir dir;
-    api::Cord hitbox_sz;
     // delay of shooting
     // hp
     Tank() = default;
@@ -34,10 +33,31 @@ struct Tank {
         api::TankInfo info;
         info.pos = pos;
         info.dir = dir;
-        info.hitbox_sz = hitbox_sz;
         return info;
     }
 };
+
+struct Bullet {
+    static constexpr int BULLET_SPEED = 1;
+
+    api::Cord pos;
+    api::Dir dir;
+    int speed;           
+    api::TankId owner;
+
+
+    Bullet() = default;
+
+    api::BulletInfo get_info() const {
+        api::BulletInfo info;
+        info.pos = pos;
+        info.dir = dir;
+        info.speed = speed;
+        info.owner = owner;
+        return info;
+    }
+};
+
 
 class ServerWorld { // GameWorld logic
  
@@ -46,6 +66,7 @@ private:
     uint64_t tick_=0;
 
     std::map<uint64_t, Tank> tanks_; 
+    std::vector<Bullet> bullets_;
     api::TankId tank_id_=0;
 
 public:
@@ -61,6 +82,10 @@ public:
             std::back_inserter(state.tanks),
             [](auto tank_pair) { return tank_pair.second.get_info(); });
 
+        std::transform(bullets_.begin(), bullets_.end(), 
+            std::back_inserter(state.bullets),
+            [](auto &bullet) { return bullet.get_info(); });
+
         return state;
     }
 
@@ -68,7 +93,6 @@ public:
         tanks_[id] = Tank();
         auto &tank = tanks_[id];
         tank.pos = tile_pos;
-        tank.hitbox_sz = get_tank_hitbox_size();
     }
 
     void tank_rotate(const api::TankId tank_id, api::RotationDir rot_dir) {
@@ -77,8 +101,49 @@ public:
         tanks_[tank_id].dir = get_rotated_dir(tanks_[tank_id].dir, rot_dir); 
     }
 
-    void turret_fire(const api::TankId) {
-        std::cout << "fire!!!\n";
+    void turret_fire(const api::TankId tank_id) {
+        if (!tanks_.contains(tank_id)) return;
+
+        Tank &tank = tanks_[tank_id];
+
+        Bullet bullet;
+        bullet.pos = tank.pos;
+        bullet.dir = tank.dir;
+        bullet.speed = Bullet::BULLET_SPEED;
+        bullet.owner = tank_id;
+
+        bullets_.push_back(bullet);
+    }
+
+     void simulate_step() {
+        for (auto it = bullets_.begin(); it != bullets_.end(); ) {
+            api::Cord delta = dir_to_cord(it->dir);
+            it->pos.x += delta.x * it->speed;
+            it->pos.y += delta.y * it->speed;
+
+            if (is_wall(it->pos)) {
+                it = bullets_.erase(it);
+                continue;
+            }
+
+            for (auto &[id, tank] : tanks_) {
+                if (id == it->owner) continue; // ignore shooter
+                if (tank.pos == it->pos) {
+                    it = bullets_.erase(it);
+                    // TODO: damage tank
+                    break;
+                }
+            }
+        ++it;
+        }
+    }
+
+    bool is_wall(const api::Cord cord) {
+        if (cord.y >= (int) map_.grid.size()) return false;
+        if (cord.x >= (int) map_.grid[0].size()) return false;
+        if (cord.y < 0) return false;
+        if (cord.x < 0) return false;
+        return map_.grid[cord.y][cord.x].type == api::Tile::Type::Wall;
     }
 
     api::Cord get_tank_hitbox_size() const {
@@ -154,7 +219,8 @@ public:
 
     void update() override {
         execute_command_queue();
-    
+        world_.simulate_step();        
+
         std::for_each(clients_.begin(), clients_.end(), 
             [this](api::IClient* client) {
                 api::GameState snapshot = world_.create_snapshot();

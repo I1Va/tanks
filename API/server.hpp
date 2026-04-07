@@ -10,14 +10,18 @@ class IClient;
 struct Cord {
     int x;
     int y;
+
+    bool operator==(const Cord &other) const {
+        return x == other.x && y == other.y;
+    }
 };
 
 struct Tile {
     enum class Type {
-        WALL,
-        EMPTY,
+        Wall,
+        Floor,
     };
-    Type type= Type::EMPTY;
+    Type type= Type::Floor;
 };
 
 struct GameMap {
@@ -80,13 +84,20 @@ inline api::Dir get_rotated_dir(const api::Dir dir, const api::RotationDir rot_d
 struct TankInfo {
     Cord pos;
     Dir dir;
-    Cord hitbox_sz;
+};
+
+struct BulletInfo {
+    Cord pos;
+    Dir dir;
+    int speed;           
+    TankId owner;  
 };
 
 struct GameState {
     GameMap map;
     uint64_t tick; 
     std::vector<TankInfo> tanks;
+    std::vector<BulletInfo> bullets;
 };
 
 class IServer {

@@ -11,27 +11,27 @@ api::GameMap create_game_map() {
     api::GameMap map(height, width, tile_sz);
     // for (size_t x = 0; x < width; x++) {
     //     for (size_t y = 0; y < height; y++) {
-    //         map.grid[y][x].type = api::Tile::Type::EMPTY;
+    //         map.grid[y][x].type = api::Tile::Type::Floor;
     //     }
     // }
 
     for (size_t x = 0; x < width; x++) {
-        map.grid[0][x].type = api::Tile::Type::WALL;
+        map.grid[0][x].type = api::Tile::Type::Wall;
     }
 
     // bottom row
     for (size_t x = 0; x < width; x++) {
-        map.grid[height - 1][x].type = api::Tile::Type::WALL;
+        map.grid[height - 1][x].type = api::Tile::Type::Wall;
     }
 
     // left column (excluding corners if already set is optional)
     for (size_t y = 0; y < height; y++) {
-        map.grid[y][0].type = api::Tile::Type::WALL;
+        map.grid[y][0].type = api::Tile::Type::Wall;
     }
 
     // right column
     for (size_t y = 0; y < height; y++) {
-        map.grid[y][width - 1].type = api::Tile::Type::WALL;
+        map.grid[y][width - 1].type = api::Tile::Type::Wall;
     }
 
     return map;
@@ -70,6 +70,7 @@ int main() {
 
         server.tank_rotate(tank_id, api::RotationDir::RIGHT);
         server.tank_move_torward(tank_id);
+        server.turret_fire(tank_id);
 
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) SDL_Delay(frameDelay - frameTime);

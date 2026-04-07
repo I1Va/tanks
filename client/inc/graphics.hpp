@@ -178,7 +178,15 @@ public:
         SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 0, 255);
         SDL_RenderClear(renderer_.get());
 
+       
+
         render_map(world);
+        
+        for (auto &b : world.bullets()) {
+            SDL_Rect r = {static_cast<int>(b.pos.x), static_cast<int>(b.pos.y), 4, 4};
+            SDL_SetRenderDrawColor(renderer_.get(), 255, 255, 0, 255);
+            SDL_RenderFillRect(renderer_.get(), &r);
+        }
 
         for (auto &tank : world.tanks()) {
             render_tank(tank);
@@ -211,8 +219,8 @@ private:
                     static_cast<int>(h)
                 };
                 switch (tile.type) {
-                    case api::Tile::Type::WALL:  SDL_RenderCopy(renderer_.get(), tile_texture_pack.wall.get(), nullptr, &dst_rect); break;
-                    case api::Tile::Type::EMPTY: SDL_RenderCopy(renderer_.get(), tile_texture_pack.floor.get(), nullptr, &dst_rect); break;
+                    case api::Tile::Type::Wall:  SDL_RenderCopy(renderer_.get(), tile_texture_pack.wall.get(), nullptr, &dst_rect); break;
+                    case api::Tile::Type::Floor: SDL_RenderCopy(renderer_.get(), tile_texture_pack.floor.get(), nullptr, &dst_rect); break;
                     default: 
                     assert(false && "invalid tile type");
                 }
