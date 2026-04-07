@@ -19,14 +19,17 @@ namespace client
 class ClientWorld {
     uint64_t tick_;
     api::GameMap map_;
+    std::vector<api::ITank *> tanks_;
 public:
     void apply_game_state(api::GameState &state) {
         tick_ = state.tick;
         map_ = state.map;
+        tanks_ = state.tanks;
     }
 
     uint64_t tick() const { return tick_; }
     const api::GameMap &map() const { return map_; }
+    const std::vector<api::ITank *> &tanks() const { return tanks_; }
 };
 
 // class Net {
@@ -54,20 +57,34 @@ struct SDL_Init_Guard {
 
 class Graphics {
 public:
-    struct TexturePack {
+    struct TexturePackPathes {
         std::string wall_texture_path="assets/textures/bricks/Brick.png";
-        std::string empty_texture_path="assets/textures/bricks/Grey bricks.png";      
+        std::string empty_texture_path="assets/textures/bricks/Greybricks.png";      
     };
 
     struct Config {
-        int screen_width=800;
+        int screen_width=600;
         int screen_height=600;
-        int tile_sz=50;
+        int tile_sz=60;
 
         std::string font_path="/usr/share/fonts/TTF/Hack-Bold.ttf";
         int font_size=24;
 
-        TexturePack texture_pack;
+        TexturePackPathes texture_pack_pathes;
+    };
+
+    struct TexturePack {
+        raii::SDL_Texture wall_tile_texture=nullptr;
+        raii::SDL_Texture empty_tile_texture=nullptr;
+
+        void load(SDL_Renderer *renderer, const TexturePackPathes &pathes) {
+            SDL_Texture *texture=nullptr;
+            requireSDLCondition(texture=load_texture(renderer, pathes.wall_texture_path));
+            wall_tile_texture.reset(texture);
+
+            requireSDLCondition(texture=load_texture(renderer, pathes.empty_texture_path));
+            empty_tile_texture.reset(texture);
+        }
     };
 
 private:
@@ -80,6 +97,7 @@ private:
     raii::SDL_Renderer renderer_=nullptr;
     raii::TTF_Font font_=nullptr;
 
+    TexturePack texture_pack_;
 public:
     Graphics(const Config &config) : config_(config) {
         SDL_Window * window_ptr = 
@@ -104,6 +122,8 @@ public:
         TTF_Font *font_ptr = TTF_OpenFont(config.font_path.c_str(), config.font_size); 
         if (!font_ptr) throw TTFException();
         font_.reset(font_ptr); 
+
+        texture_pack_.load(renderer_.get(), config_.texture_pack_pathes);
     }
 
     ~Graphics() {}
@@ -111,27 +131,29 @@ public:
     void render(const ClientWorld &world) {
         SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 0, 255);
         SDL_RenderClear(renderer_.get());
-
-        // TODO: fix perforamnce. Load texture ones in initialization;
-    
-        for (const auto &line : world.map().grid) {
-            for (const auto &tile : line) {
-                SDL_Texture *texture=nullptr;
-                std::string texture_path;
+        
+        const std::vector<std::vector<api::Tile>> &grid = world.map().grid;
+        for (size_t y = 0; y < grid.size(); y++) {
+            for (size_t x = 0; x < world.map().grid[y].size(); x++) {
+                int w = config_.tile_sz;
+                int h = config_.tile_sz;
+                api::Tile tile = grid[y][x];
                 switch (tile.type) {
-                    case api::Tile::Type::WALL: texture_path = config_.texture_pack.wall_texture_path; break;
-                    case api::Tile::Type::EMPTY: texture_path = config_.texture_pack.empty_texture_path; break;
-                    default: assert("invalid tile type");
+                    case api::Tile::Type::WALL:  draw_texture(renderer_.get(), texture_pack_.wall_tile_texture.get(), x * w, y * h, w, h); break;
+                    case api::Tile::Type::EMPTY: draw_texture(renderer_.get(), texture_pack_.empty_tile_texture.get(), x * w, y * h, w, h); break;
+                    default: 
+                    assert("invalid tile type");
                 }
-
-                texture = loadTexture(renderer_.get(), texture_path);
-                if (!texture) throw SDLException();
-
-                SDL_Rect dstRect = {tile.cord.x * config_.tile_sz, tile.cord.y * config_.tile_sz, config_.tile_sz, config_.tile_sz};
-                SDL_RenderCopy(renderer_.get(), texture, nullptr, &dstRect);
-
             }
         }
+
+        for (auto tank : world.tanks()) {
+            SDL_Rect rect = {tank->get_pos().x, tank->get_pos().y, 50, 50};
+
+            SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 255, 255); 
+            SDL_RenderDrawRect(renderer_.get(), &rect);
+        }
+
         SDL_RenderPresent(renderer_.get());
     }
 

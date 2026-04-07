@@ -4,47 +4,49 @@
 #include "client.hpp"
 #include "server.hpp"
 
-server::ServerWorld create_world() {
+api::GameMap create_game_map() {
     const size_t height = 10;
     const size_t width = 10;
     api::GameMap map(height, width);
+    // for (size_t x = 0; x < width; x++) {
+    //     for (size_t y = 0; y < height; y++) {
+    //         map.grid[y][x].type = api::Tile::Type::EMPTY;
+    //     }
+    // }
 
     for (size_t x = 0; x < width; x++) {
         map.grid[0][x].type = api::Tile::Type::WALL;
-        map.grid[0][x].cord = { int(0), int(x) };
     }
 
     // bottom row
     for (size_t x = 0; x < width; x++) {
         map.grid[height - 1][x].type = api::Tile::Type::WALL;
-        map.grid[height - 1][x].cord = { int(height - 1), int(x) };
     }
 
     // left column (excluding corners if already set is optional)
     for (size_t y = 0; y < height; y++) {
         map.grid[y][0].type = api::Tile::Type::WALL;
-        map.grid[y][0].cord = { int(y), int(0) };
     }
 
     // right column
     for (size_t y = 0; y < height; y++) {
         map.grid[y][width - 1].type = api::Tile::Type::WALL;
-        map.grid[y][width - 1].cord = { int(y), int(width - 1) };
     }
-    server::ServerWorld world(map);
-    return world;
+
+    return map;
 }
 
 int main() {
-    server::ServerWorld world = create_world();
+    api::GameMap map = create_game_map();
 
     client::Client::Config config;
     client::Client client_game(config);
-    server::Server server(world);
+    server::Server server(map);
 
     server.add_client(&client_game);
+    server.spawn_tank({5, 5});
 
-    const int FPS = 1;
+    const int FPS = 60;
     const int frameDelay = 1000 / FPS; // milliseconds
 
     Uint32 frameStart;

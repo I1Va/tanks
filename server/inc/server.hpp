@@ -12,9 +12,19 @@
 
 namespace server {
 
+class Tank : public api::ITank {
+    api::Cord pos_={};
+public:
+    Tank() = default;
+    void set_pos(const api::Cord pos) override { pos_ = pos; }
+    api::Cord get_pos() const override { return pos_; }     
+};
+
 class ServerWorld { // GameWorld logic
     api::GameMap map_;
     uint64_t tick_=0;
+    std::vector<std::unique_ptr<api::ITank>> tanks_;
+
 public:
     ServerWorld(const api::GameMap &map): map_(map) {}
 
@@ -23,11 +33,24 @@ public:
     }
     
     api::GameState create_snapshot() const {
-        return api::GameState{map_, tick_};
+        api::GameState state;
+        state.map = map_;
+        state.tick = tick_;
+        std::transform(tanks_.begin(), tanks_.end(), 
+            std::back_inserter(state.tanks),
+            [](auto &tank) { return tank.get(); });
+
+        return state;
     }
 
     void apply_input(const api::Input &input) {
 
+    }
+
+    api::ITank *spawn_tank(const api::Cord pos) {
+        tanks_.emplace_back(std::make_unique<Tank>());
+        tanks_.back()->set_pos(pos);
+        return tanks_.back().get();
     }
 };
 
@@ -36,7 +59,7 @@ class Server : public api::IServer {
     std::vector<api::IClient *> clients_;
 public:
     ~Server() = default;
-    Server(const ServerWorld &world): world_(world) {}
+    Server(const api::GameMap &map): world_(map) {}
 
     void add_client(api::IClient *client) override {
         assert(client);
@@ -60,6 +83,15 @@ public:
                 client->receive(snapshot);
         });
     }
+
+    api::ITank *spawn_tank(const api::Cord pos) override {
+        return world_.spawn_tank(pos);
+    }
+
+    // void move(const ITank *tank, ITank::Dirs dir, float dt) = 0;
+    // void rotate(const ITank *tank, ITank::Dirs dir) = 0;    
+
+
 };
 
 }; // namespace server
