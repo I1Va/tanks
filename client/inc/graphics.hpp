@@ -53,36 +53,24 @@ struct TankTexturePack {
     static constexpr std::string TRACK_B_PATH = "trackB.png";
     static constexpr std::string RENDER_INFO_PATH = "render_info";
 
+    raii::SDL_Texture tank_base=nullptr;
+
     raii::SDL_Texture body=nullptr;
-    Vec2f body_center={};
-    Vec2f turret_slot_center={};
+    SDL_Point body_center={};
+    SDL_Point turret_slot_center={};
 
     raii::SDL_Texture turret=nullptr;
-    Vec2f turret_center={};
+    SDL_Point turret_center={};
 
     raii::SDL_Texture trackA=nullptr;
     raii::SDL_Texture trackB=nullptr;
-
-    Vec2f parse_turret_center(std::ifstream &file) {
-        std::string key;
-        Vec2f center;
-
-        while (file >> key) {
-            if (key == "turret_center") {
-                file >> center.x >> center.y;
-                return center;
-            }
-        }
-    
-        throw std::runtime_error("turret_center was not found in render info");
-    }
 
     void parse_render_info(const std::string &path) {
         std::ifstream file(path + "/" + RENDER_INFO_PATH);
         if (!file) throw std::runtime_error("failed to load render_info : `" + RENDER_INFO_PATH + "`");
 
         std::string key;
-        Vec2f center;
+        SDL_Point center;
 
         bool body_center_parsed = false;
         bool turret_slot_center_parsed = false;
@@ -99,6 +87,7 @@ struct TankTexturePack {
 
     void load(SDL_Renderer *renderer, const std::string &path) {
         SDL_Texture *texture=nullptr;
+        
         requireSDLCondition(texture=load_texture(renderer, path + "/" + BODY_PATH));
         body.reset(texture);
 
@@ -112,6 +101,20 @@ struct TankTexturePack {
         trackB.reset(texture);
 
         parse_render_info(path);
+
+        SDL_Point tank_texture_size;
+        SDL_QueryTexture(body.get(), nullptr, nullptr, &tank_texture_size.x, &tank_texture_size.y);
+
+        texture = SDL_CreateTexture(
+            renderer,
+            SDL_PIXELFORMAT_RGBA8888,
+            SDL_TEXTUREACCESS_TARGET,
+            tank_texture_size.x,
+            tank_texture_size.y
+        );
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+        tank_base.reset(texture);
     }
 };
 
@@ -201,9 +204,15 @@ private:
                 int w = world.map().tile_sz;
                 int h = world.map().tile_sz;
                 api::Tile tile = grid[y][x];
+                SDL_Rect dst_rect = {
+                    static_cast<int>(x * w),
+                    static_cast<int>(y * h),
+                    static_cast<int>(w), 
+                    static_cast<int>(h)
+                };
                 switch (tile.type) {
-                    case api::Tile::Type::WALL:  draw_texture(renderer_.get(), tile_texture_pack.wall.get(),  x * w, y * h, w, h); break;
-                    case api::Tile::Type::EMPTY: draw_texture(renderer_.get(), tile_texture_pack.floor.get(), x * w, y * h, w, h); break;
+                    case api::Tile::Type::WALL:  SDL_RenderCopy(renderer_.get(), tile_texture_pack.wall.get(), nullptr, &dst_rect); break;
+                    case api::Tile::Type::EMPTY: SDL_RenderCopy(renderer_.get(), tile_texture_pack.floor.get(), nullptr, &dst_rect); break;
                     default: 
                     assert(false && "invalid tile type");
                 }
@@ -211,31 +220,48 @@ private:
         }
     }
 
-    void render_tank(const Tank &tank) {
+    void render_tank(const Tank &tank) {     
+        SDL_SetRenderTarget(renderer_.get(), tank_texture_pack.tank_base.get());
+        SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 0, 0); 
+        SDL_RenderClear(renderer_.get());
+
+        // Body
+        SDL_Point tank_texture_size;
+        SDL_QueryTexture(tank_texture_pack.body.get(), nullptr, nullptr, &tank_texture_size.x, &tank_texture_size.y);
+        SDL_Rect tank_texture_rect = {0, 0, tank_texture_size.x, tank_texture_size.y};
+        SDL_RenderCopy(renderer_.get(), tank_texture_pack.body.get(), nullptr, &tank_texture_rect);
+
+        // Turret
+        SDL_Point turret_texture_size;
+        SDL_QueryTexture(tank_texture_pack.turret.get(), nullptr, nullptr, &turret_texture_size.x, &turret_texture_size.y);
+        SDL_Rect turret_texture_rect = { 
+            tank_texture_pack.turret_slot_center.x - tank_texture_pack.turret_center.x,
+            tank_texture_pack.turret_slot_center.y - tank_texture_pack.turret_center.y,
+            turret_texture_size.x,
+            turret_texture_size.y
+        };
+        SDL_RenderCopy(renderer_.get(), tank_texture_pack.turret.get(), nullptr, &turret_texture_rect);
+
+        SDL_SetRenderTarget(renderer_.get(), nullptr);
+
         SDL_Rect tank_rect = { 
             static_cast<int>(tank.pos.x), 
             static_cast<int>(tank.pos.y), 
             static_cast<int>(tank.hitbox_sz.x), 
             static_cast<int>(tank.hitbox_sz.y) 
         };
-
         float angle = convert_dir_to_angle(tank.dir);
         SDL_Point center = { 
             static_cast<int>(tank.hitbox_sz.x / 2), 
             static_cast<int>(tank.hitbox_sz.y / 2)
         }; 
-
-        int w, h;
-        SDL_QueryTexture(tank_texture_pack.body.get(), nullptr, nullptr, &w, &h);
-
         SDL_RenderCopyEx(renderer_.get(),
-                        tank_texture_pack.body.get(),
-                        nullptr,       
+                        tank_texture_pack.tank_base.get(),
+                        nullptr,
                         &tank_rect,
-                        angle,         
-                        &center,       
+                        angle,
+                        &center,
                         SDL_FLIP_NONE);
-
 
         SDL_SetRenderDrawColor(renderer_.get(), 255, 0, 0, 255); 
         SDL_RenderDrawRect(renderer_.get(), &tank_rect);

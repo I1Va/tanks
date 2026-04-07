@@ -28,8 +28,3 @@ SDL_Texture *load_texture(SDL_Renderer *renderer, const std::string& path) {
     SDL_FreeSurface(surface);
     return texture;
 }
-
-void draw_texture(SDL_Renderer* renderer, SDL_Texture* texture, int x, int y, int w, int h) {
-    SDL_Rect dstRect = {x, y, w, h};
-    SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
-}

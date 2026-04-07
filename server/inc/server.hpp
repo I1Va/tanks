@@ -25,7 +25,6 @@ namespace server {
 struct Tank {
     api::Cord pos;
     api::Dir dir;
-    api::Dir turret_dir;
     api::Cord hitbox_sz;
     // delay of shooting
     // hp
@@ -35,7 +34,6 @@ struct Tank {
         api::TankInfo info;
         info.pos = pos;
         info.dir = dir;
-        info.turret_dir = turret_dir;
         info.hitbox_sz = hitbox_sz;
         return info;
     }
@@ -77,10 +75,6 @@ public:
         if (!tanks_.contains(tank_id)) return;
 
         tanks_[tank_id].dir = get_rotated_dir(tanks_[tank_id].dir, rot_dir); 
-    }
-
-    void turret_rotate(const api::TankId tank_id, api::RotationDir rot_dir) {
-        tanks_[tank_id].turret_dir = get_rotated_dir(tanks_[tank_id].turret_dir, rot_dir); 
     }
 
     void turret_fire(const api::TankId) {
@@ -135,7 +129,6 @@ struct ServerCommand {
     enum Type { 
         MoveForward, 
         TankRotate,
-        TurretRotate,
         Spawn,
         TurretFire,
     };
@@ -194,14 +187,6 @@ public:
         comand_queue.push(comand);
     }
 
-    void turret_rotate(const api::TankId tank_id, const api::RotationDir dir) override {
-        ServerCommand comand;
-        comand.type = ServerCommand::Type::TurretRotate;
-        comand.tank_id = tank_id;
-        comand.rot_dir = dir;
-        comand_queue.push(comand);
-    }
-    
     void turret_fire(const api::TankId tank_id) override {
         ServerCommand comand;
         comand.type = ServerCommand::Type::TurretFire;
@@ -220,7 +205,6 @@ private:
             switch (command.type) {
                 case ServerCommand::Type::MoveForward: world_.tank_move_forward(command.tank_id); break;
                 case ServerCommand::Type::TankRotate: world_.tank_rotate(command.tank_id, command.rot_dir); break;
-                case ServerCommand::Type::TurretRotate: world_.turret_rotate(command.tank_id, command.rot_dir); break;
                 case ServerCommand::Type::TurretFire: world_.turret_fire(command.tank_id); break;
                 case ServerCommand::Type::Spawn: world_.spawn_tank_in_tile(command.tile_pos, command.tank_id); break;
                 default:

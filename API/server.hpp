@@ -80,7 +80,6 @@ inline api::Dir get_rotated_dir(const api::Dir dir, const api::RotationDir rot_d
 struct TankInfo {
     Cord pos;
     Dir dir;
-    Dir turret_dir;
     Cord hitbox_sz;
 };
 
@@ -99,7 +98,6 @@ public:
     virtual TankId spawn_tank_in_tile(const Cord tile_pos) = 0;
     virtual void tank_move_torward(const TankId tank_id) = 0;
     virtual void tank_rotate(const TankId tank_id, const RotationDir dir) = 0;
-    virtual void turret_rotate(const TankId tank_id, const RotationDir dir) = 0;
     virtual void turret_fire(const TankId tank_id) = 0;
     virtual int get_tank_info(TankId id, TankInfo &info) = 0;
 };
