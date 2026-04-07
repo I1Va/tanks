@@ -25,6 +25,7 @@ namespace server {
 struct Tank {
     api::Cord pos;
     api::Dir dir;
+    api::Dir turret_dir;
     api::Cord hitbox_sz;
     // delay of shooting
     // hp
@@ -34,6 +35,7 @@ struct Tank {
         api::TankInfo info;
         info.pos = pos;
         info.dir = dir;
+        info.turret_dir = turret_dir;
         info.hitbox_sz = hitbox_sz;
         return info;
     }
@@ -50,11 +52,6 @@ private:
 
 public:
     ServerWorld(const api::GameMap &map): map_(map) {}
-
-    void simulate_step(float dt) {
-        // TODO: add queue of events and process them there  
-        ++tick_;
-    }
     
     api::TankId get_new_tank_id() { return tank_id_++; }
     
@@ -69,10 +66,6 @@ public:
         return state;
     }
 
-    void apply_input(const api::Input &input) {
-
-    }
-
     void spawn_tank_in_tile(const api::Cord tile_pos, const api::TankId id) {
         tanks_[id] = Tank();
         auto &tank = tanks_[id];
@@ -80,9 +73,18 @@ public:
         tank.hitbox_sz = get_tank_hitbox_size();
     }
 
-    void tank_rotate(const api::TankId tank_id, api::Dir dir) {
+    void tank_rotate(const api::TankId tank_id, api::RotationDir rot_dir) {
         if (!tanks_.contains(tank_id)) return;
-        tanks_[tank_id].dir = dir;
+
+        tanks_[tank_id].dir = get_rotated_dir(tanks_[tank_id].dir, rot_dir); 
+    }
+
+    void turret_rotate(const api::TankId tank_id, api::RotationDir rot_dir) {
+        tanks_[tank_id].turret_dir = get_rotated_dir(tanks_[tank_id].turret_dir, rot_dir); 
+    }
+
+    void turret_fire(const api::TankId) {
+        std::cout << "fire!!!\n";
     }
 
     api::Cord get_tank_hitbox_size() const {
@@ -132,12 +134,14 @@ private:
 struct ServerCommand {
     enum Type { 
         MoveForward, 
-        Rotate,
+        TankRotate,
+        TurretRotate,
         Spawn,
+        TurretFire,
     };
     Type type;
     api::TankId tank_id;
-    api::Dir dir; 
+    api::RotationDir rot_dir; 
     api::Cord tile_pos;
 };
 
@@ -158,16 +162,6 @@ public:
     void update() override {
         execute_command_queue();
     
-        const float TICK_RATE = 30.0f;
-        
-        std::for_each(clients_.begin(), clients_.end(), 
-            [this](api::IClient* client) {
-            api::Input client_input = client->sendInput();
-            world_.apply_input(client_input);
-        });
-
-        world_.simulate_step(TICK_RATE);
-    
         std::for_each(clients_.begin(), clients_.end(), 
             [this](api::IClient* client) {
                 api::GameState snapshot = world_.create_snapshot();
@@ -185,22 +179,37 @@ public:
         return id;
     }
 
-    void move_torward(const api::TankId tank_id) override {
+    void tank_move_torward(const api::TankId tank_id) override {
         ServerCommand comand;
         comand.type = ServerCommand::Type::MoveForward;
         comand.tank_id = tank_id;
         comand_queue.push(comand);
     }
     
-    void rotate(const api::TankId tank_id, const api::Dir dir) override {
+    void tank_rotate(const api::TankId tank_id, const api::RotationDir dir) override {
         ServerCommand comand;
-        comand.type = ServerCommand::Type::Rotate;
+        comand.type = ServerCommand::Type::TankRotate;
         comand.tank_id = tank_id;
-        comand.dir = dir;
+        comand.rot_dir = dir;
         comand_queue.push(comand);
     }
 
-    int get_tank_info(api::TankId id, api::TankInfo &info) {
+    void turret_rotate(const api::TankId tank_id, const api::RotationDir dir) override {
+        ServerCommand comand;
+        comand.type = ServerCommand::Type::TurretRotate;
+        comand.tank_id = tank_id;
+        comand.rot_dir = dir;
+        comand_queue.push(comand);
+    }
+    
+    void turret_fire(const api::TankId tank_id) override {
+        ServerCommand comand;
+        comand.type = ServerCommand::Type::TurretFire;
+        comand.tank_id = tank_id;
+        comand_queue.push(comand);
+    }    
+
+    int get_tank_info(api::TankId id, api::TankInfo &info) override {
         return world_.get_tank_info(id, info);
     }
 
@@ -209,12 +218,11 @@ private:
         while (!comand_queue.empty()) {
             auto &command = comand_queue.front();
             switch (command.type) {
-                case ServerCommand::Type::Rotate: 
-                    world_.tank_rotate(command.tank_id, command.dir); break;
-                case ServerCommand::Type::MoveForward: 
-                    world_.tank_move_forward(command.tank_id); break;
-                case ServerCommand::Type::Spawn:
-                    world_.spawn_tank_in_tile(command.tile_pos, command.tank_id); break;
+                case ServerCommand::Type::MoveForward: world_.tank_move_forward(command.tank_id); break;
+                case ServerCommand::Type::TankRotate: world_.tank_rotate(command.tank_id, command.rot_dir); break;
+                case ServerCommand::Type::TurretRotate: world_.turret_rotate(command.tank_id, command.rot_dir); break;
+                case ServerCommand::Type::TurretFire: world_.turret_fire(command.tank_id); break;
+                case ServerCommand::Type::Spawn: world_.spawn_tank_in_tile(command.tile_pos, command.tank_id); break;
                 default:
                     assert(false && "unknown command in queue" && (int) command.type);
             }

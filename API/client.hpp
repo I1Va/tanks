@@ -15,9 +15,6 @@ public:
     // connect to server
     virtual bool connect(const std::string &ip, int port) = 0;
 
-    // send player input
-    virtual Input sendInput() const = 0;
-
     // receive game state from server
     virtual void receive(GameState &state) = 0;
 
