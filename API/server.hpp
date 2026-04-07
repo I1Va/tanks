@@ -45,7 +45,8 @@ public:
     };
     virtual ~ITank() = default;
     virtual void set_pos(const api::Cord pos) = 0;
-    virtual api::Cord get_pos() const = 0;     
+    virtual api::Cord get_pos() const = 0;
+    virtual api::Cord get_hitbox_size() const = 0;      
 };
 
 struct GameState {

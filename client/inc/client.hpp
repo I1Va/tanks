@@ -153,9 +153,14 @@ public:
         }
 
         for (auto tank : world.tanks()) {
-            draw_texture(renderer_.get(), texture_pack_.tank_texture.get(), tank->get_pos().x, tank->get_pos().y, 60, 60); break;
+            api::Cord tank_pos = tank->get_pos();
+            api::Cord tank_hitbox_size = tank->get_hitbox_size();
+            draw_texture(renderer_.get(), texture_pack_.tank_texture.get(), tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y);
+            
+            SDL_Rect rect = {tank_pos.x, tank_pos.y, tank_hitbox_size.x, tank_hitbox_size.y};
+            SDL_SetRenderDrawColor(renderer_.get(), 255, 0, 0, 255); 
+            SDL_RenderDrawRect(renderer_.get(), &rect);
         }
-
         SDL_RenderPresent(renderer_.get());
     }
 

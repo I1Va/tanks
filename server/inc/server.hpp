@@ -13,11 +13,15 @@
 namespace server {
 
 class Tank : public api::ITank {
+    api::Cord hitbox_size_={};
     api::Cord pos_={};
+
 public:
-    Tank() = default;
+    Tank(api::Cord hitbox_size): hitbox_size_(hitbox_size) {}
+    
     void set_pos(const api::Cord pos) override { pos_ = pos; }
-    api::Cord get_pos() const override { return pos_; }     
+    api::Cord get_pos() const override { return pos_; } 
+    api::Cord get_hitbox_size() const override { return hitbox_size_; }    
 };
 
 class ServerWorld { // GameWorld logic
@@ -48,13 +52,18 @@ public:
     }
 
     api::ITank *spawn_tank_in_tile(const api::Cord tile_pos) {
-        tanks_.emplace_back(std::make_unique<Tank>());
+        tanks_.emplace_back(std::make_unique<Tank>(get_tank_hitbox_size()));
         api::Cord pos = {
             static_cast<int>(tile_pos.x * map_.tile_sz), 
             static_cast<int>(tile_pos.y * map_.tile_sz)
         };
         tanks_.back()->set_pos(pos);
         return tanks_.back().get();
+    }
+
+    api::Cord get_tank_hitbox_size() const {
+        int sz = map_.tile_sz * 0.9; 
+        return {sz, sz};
     }
 };
 
