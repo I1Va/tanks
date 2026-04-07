@@ -22,8 +22,17 @@ struct Tile {
 
 struct GameMap {
     std::vector<std::vector<Tile>> grid;
-    GameMap(const size_t height, const size_t width): grid(height, std::vector<Tile>(width)) {}
-    GameMap() = default;
+    size_t tile_sz=0;
+    GameMap
+    (
+        const size_t height, const size_t width,
+        const size_t itile_sz
+    ): 
+    grid(height, std::vector<Tile>(width)),
+    tile_sz(itile_sz)
+    {}
+
+    GameMap()=default;
 };
 
 class ITank {
@@ -54,7 +63,7 @@ public:
     virtual void add_client(IClient *client) = 0;
     virtual void update() = 0;
 
-    virtual ITank *spawn_tank(const Cord pos) = 0;
+    virtual ITank *spawn_tank_in_tile(const Cord tile_pos) = 0;
 
     // virtual void move(const ITank *tank, ITank::Dirs dir, float dt) = 0;
     // virtual void rotate(const ITank *tank, ITank::Dirs dir) = 0;    

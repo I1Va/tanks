@@ -59,13 +59,14 @@ class Graphics {
 public:
     struct TexturePackPathes {
         std::string wall_texture_path="assets/textures/bricks/Brick.png";
-        std::string empty_texture_path="assets/textures/bricks/Greybricks.png";      
+        std::string empty_texture_path="assets/textures/bricks/Greybricks.png";     
+
+        std::string tank_texture_path = "assets/textures/free-2d-battle-tank-game-assets/PNG/Hulls_Color_A/Hull_01.png";
     };
 
     struct Config {
         int screen_width=600;
         int screen_height=600;
-        int tile_sz=60;
 
         std::string font_path="/usr/share/fonts/TTF/Hack-Bold.ttf";
         int font_size=24;
@@ -76,6 +77,7 @@ public:
     struct TexturePack {
         raii::SDL_Texture wall_tile_texture=nullptr;
         raii::SDL_Texture empty_tile_texture=nullptr;
+        raii::SDL_Texture tank_texture=nullptr;
 
         void load(SDL_Renderer *renderer, const TexturePackPathes &pathes) {
             SDL_Texture *texture=nullptr;
@@ -84,6 +86,9 @@ public:
 
             requireSDLCondition(texture=load_texture(renderer, pathes.empty_texture_path));
             empty_tile_texture.reset(texture);
+
+            requireSDLCondition(texture=load_texture(renderer, pathes.tank_texture_path));
+            tank_texture.reset(texture);
         }
     };
 
@@ -135,8 +140,8 @@ public:
         const std::vector<std::vector<api::Tile>> &grid = world.map().grid;
         for (size_t y = 0; y < grid.size(); y++) {
             for (size_t x = 0; x < world.map().grid[y].size(); x++) {
-                int w = config_.tile_sz;
-                int h = config_.tile_sz;
+                int w = world.map().tile_sz;
+                int h = world.map().tile_sz;
                 api::Tile tile = grid[y][x];
                 switch (tile.type) {
                     case api::Tile::Type::WALL:  draw_texture(renderer_.get(), texture_pack_.wall_tile_texture.get(), x * w, y * h, w, h); break;
@@ -148,10 +153,7 @@ public:
         }
 
         for (auto tank : world.tanks()) {
-            SDL_Rect rect = {tank->get_pos().x, tank->get_pos().y, 50, 50};
-
-            SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 255, 255); 
-            SDL_RenderDrawRect(renderer_.get(), &rect);
+            draw_texture(renderer_.get(), texture_pack_.tank_texture.get(), tank->get_pos().x, tank->get_pos().y, 60, 60); break;
         }
 
         SDL_RenderPresent(renderer_.get());

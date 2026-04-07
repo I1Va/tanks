@@ -7,7 +7,8 @@
 api::GameMap create_game_map() {
     const size_t height = 10;
     const size_t width = 10;
-    api::GameMap map(height, width);
+    const size_t tile_sz = 60;
+    api::GameMap map(height, width, tile_sz);
     // for (size_t x = 0; x < width; x++) {
     //     for (size_t y = 0; y < height; y++) {
     //         map.grid[y][x].type = api::Tile::Type::EMPTY;
@@ -44,7 +45,7 @@ int main() {
     server::Server server(map);
 
     server.add_client(&client_game);
-    server.spawn_tank({5, 5});
+    server.spawn_tank_in_tile({5, 5});
 
     const int FPS = 60;
     const int frameDelay = 1000 / FPS; // milliseconds

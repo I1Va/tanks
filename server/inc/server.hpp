@@ -47,8 +47,12 @@ public:
 
     }
 
-    api::ITank *spawn_tank(const api::Cord pos) {
+    api::ITank *spawn_tank_in_tile(const api::Cord tile_pos) {
         tanks_.emplace_back(std::make_unique<Tank>());
+        api::Cord pos = {
+            static_cast<int>(tile_pos.x * map_.tile_sz), 
+            static_cast<int>(tile_pos.y * map_.tile_sz)
+        };
         tanks_.back()->set_pos(pos);
         return tanks_.back().get();
     }
@@ -84,8 +88,8 @@ public:
         });
     }
 
-    api::ITank *spawn_tank(const api::Cord pos) override {
-        return world_.spawn_tank(pos);
+    api::ITank *spawn_tank_in_tile(const api::Cord tile_pos) override {
+        return world_.spawn_tank_in_tile(tile_pos);
     }
 
     // void move(const ITank *tank, ITank::Dirs dir, float dt) = 0;
