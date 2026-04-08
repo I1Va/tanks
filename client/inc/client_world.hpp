@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vec2.hpp"
 #include "API/client.hpp"
 #include "API/server.hpp"
 
@@ -16,8 +17,11 @@ struct Tank {
 };
 
 struct Bullet {
+    static constexpr float bullet_tile_scale=0.7;
+
     Vec2f pos;
     api::Dir dir;
+    Vec2f hitbox_sz;
 
     Bullet() = default;
 };
@@ -46,10 +50,11 @@ public:
         bullets_.clear();
         std::transform(state.bullets.begin(), state.bullets.end(), 
             std::back_inserter(bullets_),
-            [&state](auto &bullet_info) { 
+            [&state, this](auto &bullet_info) { 
                 Bullet bullet;
                 bullet.pos = Vec2f((bullet_info.pos.x + 0.5) * state.map.tile_sz, (bullet_info.pos.y + 0.5) * state.map.tile_sz);
                 bullet.dir = bullet_info.dir;
+                bullet.hitbox_sz = Vec2f(map_.tile_sz, map_.tile_sz) * Bullet::bullet_tile_scale;
                 return bullet;
             });
     }

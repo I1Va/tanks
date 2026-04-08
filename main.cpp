@@ -50,14 +50,14 @@ int main() {
     server.add_client(&client_game);
 
     npc1_init(server, {3, 3});
-    npc2_init(server, {9, 14});
-    npc3_init(server, {14, 5});
+    npc2_init(server, {9, 15});
+    npc3_init(server, {15, 5});
     server.add_npc_script(npc1_step);
     server.add_npc_script(npc2_step);
     server.add_npc_script(npc3_step);
 
     const int FPS = 10;
-    const int frameDelay = 1000 / FPS; // milliseconds
+    const int frameDelay = 1000 / FPS;
 
     Uint32 frameStart;
     int frameTime;

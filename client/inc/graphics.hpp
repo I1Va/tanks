@@ -1,6 +1,8 @@
 #pragma once
 
 #include <fstream>
+#include <iostream>
+#include <string>
 
 #include <SDL2/SDL_image.h>
 #include "SDLRAII.hpp"
@@ -51,6 +53,8 @@ struct TankTexturePack {
     static constexpr std::string TURRET_PATH = "turret.png";
     static constexpr std::string TRACK_A_PATH = "trackA.png";
     static constexpr std::string TRACK_B_PATH = "trackB.png";
+    static constexpr std::string BULLET_PATH = "bullet.png";
+
     static constexpr std::string RENDER_INFO_PATH = "render_info";
 
     raii::SDL_Texture tank_base=nullptr;
@@ -65,6 +69,9 @@ struct TankTexturePack {
     raii::SDL_Texture trackA=nullptr;
     raii::SDL_Texture trackB=nullptr;
 
+    raii::SDL_Texture bullet=nullptr;
+    SDL_Point bullet_center={};
+
     void parse_render_info(const std::string &path) {
         std::ifstream file(path + "/" + RENDER_INFO_PATH);
         if (!file) throw std::runtime_error("failed to load render_info : `" + RENDER_INFO_PATH + "`");
@@ -75,14 +82,18 @@ struct TankTexturePack {
         bool body_center_parsed = false;
         bool turret_slot_center_parsed = false;
         bool turret_center_parsed = false;
+        bool bullet_center_parsed = false;
         while (file >> key && file >> center.x >> center.y) {
             if (key == "body_center") { body_center = center; body_center_parsed = true; continue; }
             if (key == "turret_slot_center") { turret_slot_center = center; turret_slot_center_parsed = true; continue; }
             if (key == "turret_center") { turret_center = center; turret_center_parsed = true; continue; }
+            if (key == "bullet_center") { bullet_center = center; bullet_center_parsed = true; continue; }
         }
-        if (!body_center_parsed) std::cerr << "render info : " << "body_center" << "was not parsed\n";
-        if (!turret_slot_center_parsed) std::cerr << "render info : " << "turret_slot_center" << "was not parsed\n";
-        if (!turret_center_parsed) std::cerr << "render info : " << "turret_center" << "was not parsed\n";
+
+        if (!body_center_parsed) std::cerr << "render info : " << "body_center" << " was not parsed\n";
+        if (!turret_slot_center_parsed) std::cerr << "render info : " << "turret_slot_center" << " was not parsed\n";
+        if (!turret_center_parsed) std::cerr << "render info : " << "turret_center" << " was not parsed\n";
+        if (!bullet_center_parsed) std::cerr << "render info : " << "bullet_center" << " was not parsed\n";
     }
 
     void load(SDL_Renderer *renderer, const std::string &path) {
@@ -99,6 +110,9 @@ struct TankTexturePack {
 
         requireSDLCondition(texture=load_texture(renderer, path + "/" + TRACK_B_PATH));
         trackB.reset(texture);
+
+        requireSDLCondition(texture=load_texture(renderer, path + "/" + BULLET_PATH));
+        bullet.reset(texture);
 
         parse_render_info(path);
 
@@ -117,6 +131,7 @@ struct TankTexturePack {
         tank_base.reset(texture);
     }
 };
+
 
 class Graphics {
 public:
@@ -180,10 +195,8 @@ public:
 
         render_map(world);
         
-        for (auto &b : world.bullets()) {
-            SDL_Rect r = {static_cast<int>(b.pos.x), static_cast<int>(b.pos.y), 4, 4};
-            SDL_SetRenderDrawColor(renderer_.get(), 255, 255, 0, 255);
-            SDL_RenderFillRect(renderer_.get(), &r);
+        for (auto &bullet : world.bullets()) {
+            render_bullet(bullet);
         }
 
         for (auto &tank : world.tanks()) {
@@ -271,6 +284,30 @@ private:
 
         SDL_SetRenderDrawColor(renderer_.get(), 255, 0, 0, 255); 
         SDL_RenderDrawRect(renderer_.get(), &tank_rect);
+    }
+
+    void render_bullet(const Bullet &bullet) {
+        SDL_Rect r = {
+            static_cast<int>(bullet.pos.x - bullet.hitbox_sz.x / 2),
+            static_cast<int>(bullet.pos.y - bullet.hitbox_sz.y / 2),
+            static_cast<int>(bullet.hitbox_sz.x),
+            static_cast<int>(bullet.hitbox_sz.y)
+        };
+        
+        float angle = convert_dir_to_angle(bullet.dir);
+        
+        SDL_Point center = {
+            static_cast<int>(bullet.hitbox_sz.x / 2),
+            static_cast<int>(bullet.hitbox_sz.y / 2)
+        };
+        
+        SDL_RenderCopyEx(renderer_.get(),
+                        tank_texture_pack.bullet.get(),
+                        nullptr,
+                        &r,
+                        angle,
+                        &center,
+                        SDL_FLIP_NONE);
     }
 };
 
