@@ -21,6 +21,7 @@ endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/server ${CMAKE_CURRENT_BINARY_DIR}/server)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_BINARY_DIR}/client)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/npc ${CMAKE_CURRENT_BINARY_DIR}/npc)
 
 
 add_executable(${PROJECT_NAME}
@@ -30,6 +31,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE server
     PRIVATE client
+    PRIVATE npc
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -4,10 +4,12 @@
 #include "client.hpp"
 #include "server.hpp"
 
+#include "script1.hpp"
+#include "script2.hpp"
+#include "script3.hpp"
+
 const char MAP_PATH[] = "assets/map/map";
-const size_t TILE_SZ = 60;
-
-
+const size_t TILE_SZ = 50;
 
 api::GameMap create_game_map() {
     std::ifstream file(MAP_PATH);
@@ -39,14 +41,22 @@ int main() {
     api::GameMap map = create_game_map();
 
     client::Client::Config config;
+    config.gfx_config.screen_height = map.grid.size() * map.tile_sz;
+    config.gfx_config.screen_width = map.grid[0].size() * map.tile_sz;
+
     client::Client client_game(config);
     server::Server server(map);
 
     server.add_client(&client_game);
-    api::TankId tank_id = server.spawn_tank_in_tile({5, 5});
 
+    npc1_init(server, {3, 3});
+    npc2_init(server, {9, 14});
+    npc3_init(server, {14, 5});
+    server.add_npc_script(npc1_step);
+    server.add_npc_script(npc2_step);
+    server.add_npc_script(npc3_step);
 
-    const int FPS = 1;
+    const int FPS = 10;
     const int frameDelay = 1000 / FPS; // milliseconds
 
     Uint32 frameStart;
@@ -62,13 +72,6 @@ int main() {
 
         server.update();
         client_game.update();
-
-        api::TankInfo tank; 
-        int res = server.get_tank_info(tank_id, tank); assert(res == 0);
-
-        server.tank_rotate(tank_id, api::RotationDir::RIGHT);
-        server.tank_move_torward(tank_id);
-        server.turret_fire(tank_id);
 
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) SDL_Delay(frameDelay - frameTime);

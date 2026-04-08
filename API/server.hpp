@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <functional>
 
 namespace api {
 
@@ -111,6 +112,7 @@ public:
     virtual void tank_rotate(const TankId tank_id, const RotationDir dir) = 0;
     virtual void turret_fire(const TankId tank_id) = 0;
     virtual int get_tank_info(TankId id, TankInfo &info) = 0;
+    virtual void add_npc_script(std::function<void(IServer &)> script) = 0;
 };
 
 } // namespace api

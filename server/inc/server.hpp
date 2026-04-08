@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <map>
 #include <queue>
+#include <cassert>
 
 #include "API/server.hpp"
 #include "API/client.hpp"
@@ -217,6 +218,7 @@ class Server : public api::IServer {
     ServerWorld world_;
     std::vector<api::IClient *> clients_;
     std::queue<ServerCommand> comand_queue;
+    std::vector<std::function<void(IServer &)>> scripts_;
     
 public:
     ~Server() = default;
@@ -228,6 +230,8 @@ public:
     }
 
     void update() override {
+        for (auto launch_script : scripts_) launch_script(*this);
+
         execute_command_queue();
         world_.simulate_step();        
 
@@ -272,6 +276,10 @@ public:
 
     int get_tank_info(api::TankId id, api::TankInfo &info) override {
         return world_.get_tank_info(id, info);
+    }
+
+    void add_npc_script(std::function<void(IServer &)> script) override {
+        scripts_.push_back(script);
     }
 
 private:
