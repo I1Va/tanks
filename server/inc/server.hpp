@@ -125,15 +125,17 @@ public:
                 it = bullets_.erase(it);
                 continue;
             }
-
+            bool hit = false;
             for (auto &[id, tank] : tanks_) {
-                if (id == it->owner) continue; // ignore shooter
+                if (id == it->owner) continue;
                 if (tank.pos == it->pos) {
                     it = bullets_.erase(it);
-                    // TODO: damage tank
+                    tanks_.erase(id);   // tank destroyed
+                    hit = true;
                     break;
                 }
             }
+        if (hit) continue;
         ++it;
         }
     }
@@ -151,14 +153,18 @@ public:
         return {sz, sz};
     }
 
+     bool is_tile_occupied(const api::Cord &cord, api::TankId exclude_id = 0) const {
+        for (const auto &[id, tank] : tanks_) {
+            if (id == exclude_id) continue;
+            if (tank.pos == cord) return true;
+        }
+        return false;
+    }
+
     void tank_move_forward(const api::TankId tank_id) {
         if (!tanks_.contains(tank_id)) return;
 
-        // TOOD: process walls, tanks collision
-        // TODO: add simulate_step synchronization
-        
         auto &tank = tanks_[tank_id];
-
         api::Dir dir = tank.dir;
         api::Cord pos = tank.pos;
         api::Cord dir_vec = dir_to_cord(dir);
@@ -167,9 +173,13 @@ public:
             static_cast<int>(pos.x + dir_vec.x),
             static_cast<int>(pos.y + dir_vec.y)
         };
-        
+
+        if (is_wall(new_pos)) return;
+        if (is_tile_occupied(new_pos, tank_id)) return;
+
         tank.pos = new_pos;
-    }    
+    }
+
 
     int get_tank_info(api::TankId id, api::TankInfo &info) {
         if (!tanks_.contains(id)) return 1;

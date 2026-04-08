@@ -178,8 +178,6 @@ public:
         SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 0, 255);
         SDL_RenderClear(renderer_.get());
 
-       
-
         render_map(world);
         
         for (auto &b : world.bullets()) {

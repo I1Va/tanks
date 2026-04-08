@@ -4,36 +4,34 @@
 #include "client.hpp"
 #include "server.hpp"
 
+const char MAP_PATH[] = "assets/map/map";
+const size_t TILE_SZ = 60;
+
+
+
 api::GameMap create_game_map() {
-    const size_t height = 10;
-    const size_t width = 10;
-    const size_t tile_sz = 60;
-    api::GameMap map(height, width, tile_sz);
-    // for (size_t x = 0; x < width; x++) {
-    //     for (size_t y = 0; y < height; y++) {
-    //         map.grid[y][x].type = api::Tile::Type::Floor;
-    //     }
-    // }
+    std::ifstream file(MAP_PATH);
+    if (!file) throw std::runtime_error("failed to load map : `" + std::string(MAP_PATH) + "`");
 
-    for (size_t x = 0; x < width; x++) {
-        map.grid[0][x].type = api::Tile::Type::Wall;
+    int height = 0;
+    int width = 0;
+    file >> height >> width;
+    
+    api::GameMap map(height, width, TILE_SZ);
+    std::string key;
+
+    std::map<std::string, api::Tile::Type> tile_map;
+    tile_map["Wall"] = api::Tile::Type::Wall;
+    tile_map["Floor"] = api::Tile::Type::Floor;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            file >> key;
+            if (!tile_map.contains(key)) key = "Floor";
+            map.grid[y][x].type = tile_map[key];            
+        }
     }
-
-    // bottom row
-    for (size_t x = 0; x < width; x++) {
-        map.grid[height - 1][x].type = api::Tile::Type::Wall;
-    }
-
-    // left column (excluding corners if already set is optional)
-    for (size_t y = 0; y < height; y++) {
-        map.grid[y][0].type = api::Tile::Type::Wall;
-    }
-
-    // right column
-    for (size_t y = 0; y < height; y++) {
-        map.grid[y][width - 1].type = api::Tile::Type::Wall;
-    }
-
+    
     return map;
 }
 
